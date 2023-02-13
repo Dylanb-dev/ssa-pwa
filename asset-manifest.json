@@ -1,0 +1,18 @@
+{
+  "files": {
+    "main.css": "/ssa-pwa/static/css/main.673af481.css",
+    "main.js": "/ssa-pwa/static/js/main.ac6a37d6.js",
+    "static/js/787.359316be.chunk.js": "/ssa-pwa/static/js/787.359316be.chunk.js",
+    "static/media/logo.jpg": "/ssa-pwa/static/media/logo.76ed0880084ca949380f.jpg",
+    "service-worker.js": "/ssa-pwa/service-worker.js",
+    "static/media/ding.mp3": "/ssa-pwa/static/media/ding.82573fd258e15b76f833.mp3",
+    "index.html": "/ssa-pwa/index.html",
+    "main.673af481.css.map": "/ssa-pwa/static/css/main.673af481.css.map",
+    "main.ac6a37d6.js.map": "/ssa-pwa/static/js/main.ac6a37d6.js.map",
+    "787.359316be.chunk.js.map": "/ssa-pwa/static/js/787.359316be.chunk.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.673af481.css",
+    "static/js/main.ac6a37d6.js"
+  ]
+}
