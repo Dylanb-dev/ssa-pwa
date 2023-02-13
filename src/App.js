@@ -313,8 +313,6 @@ function App() {
 		onOpen(() => {
 			console.log("OPENNED")
 		})
-		await sleep(1000)
-		const suggestedFrames = document.getElementById("suggestedFrames")
 
 		// Upload to firebase
 		// const imageBMP2 = imageBMP.current.slice()
@@ -345,29 +343,7 @@ function App() {
 			},
 			[]
 		)
-		console.log({ imageBMPFiltered })
-		console.log(`Number of frames suggested: ${imageBMPFiltered.length}`)
-		const pinfo = document.createElement("p")
-		pinfo.textContent = `Suggested Frames: ${imageBMPFiltered.length}/${imageBMP.current.length}`
-		suggestedFrames.appendChild(pinfo)
 
-		// await new Promise((resolve, reject) =>
-		// 	imageBMPFiltered.forEach(async ({ bitmap, last, score }, i) => {
-		// 		console.log(suggestedFrames)
-		// 		const canvas2 = document.createElement("canvas")
-		// 		canvas2.width = bitmap.width
-		// 		canvas2.height = bitmap.height
-		// 		const ctx2 = canvas2.getContext("bitmaprenderer")
-		// 		ctx2.transferFromImageBitmap(bitmap)
-		// 		suggestedFrames.appendChild(canvas2)
-		// 		const p = document.createElement("p")
-		// 		p.textContent = `Difference score: ${score}`
-		// 		suggestedFrames.appendChild(p)
-		// 		if (i === imageBMPFiltered.length - 1) {
-		// 			resolve()
-		// 		}
-		// 	})
-		// )
 		imageBMP.current.forEach(async ({ bitmap, last }, i) => {
 			const canvas3 = document.createElement("canvas")
 			canvas3.width = bitmap.width
@@ -379,6 +355,33 @@ function App() {
 			var imagesRef = ref(storageRef, `${datestring}/${i}-${last}`)
 			await uploadBytes(imagesRef, blob3)
 		})
+		await sleep(3000)
+
+		const suggestedFrames = document.getElementById("suggestedFrames")
+
+		console.log({ imageBMPFiltered })
+		console.log(`Number of frames suggested: ${imageBMPFiltered.length}`)
+		const pinfo = document.createElement("p")
+		pinfo.textContent = `Suggested Frames: ${imageBMPFiltered.length}/${imageBMP.current.length}`
+		suggestedFrames.appendChild(pinfo)
+
+		await new Promise((resolve, reject) =>
+			imageBMPFiltered.forEach(async ({ bitmap, last, score }, i) => {
+				console.log(suggestedFrames)
+				const canvas2 = document.createElement("canvas")
+				canvas2.width = bitmap.width
+				canvas2.height = bitmap.height
+				const ctx2 = canvas2.getContext("bitmaprenderer")
+				ctx2.transferFromImageBitmap(bitmap)
+				suggestedFrames.appendChild(canvas2)
+				const p = document.createElement("p")
+				p.textContent = `Difference score: ${score}`
+				suggestedFrames.appendChild(p)
+				if (i === imageBMPFiltered.length - 1) {
+					resolve()
+				}
+			})
+		)
 	}
 
 	const options = Object.values(TIMER_VALUES)
