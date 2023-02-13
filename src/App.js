@@ -3,6 +3,8 @@ import logo from "./logo.jpg"
 import sound from "./ding.mp3"
 import image1 from "./test/1.png"
 import image2 from "./test/2.png"
+import { initializeApp } from "firebase/app"
+import { getStorage, ref, uploadBytes } from "firebase/storage"
 
 import {
 	Modal,
@@ -30,6 +32,25 @@ import {
 	FormLabel,
 	Switch,
 } from "@chakra-ui/react"
+
+const firebaseConfig = {
+	apiKey: "AIzaSyBYAQRyqjZ-vjXT1FikWjmVNDpHe4tiyJs",
+
+	authDomain: "space-exposure-d0379.firebaseapp.com",
+
+	projectId: "space-exposure-d0379",
+
+	storageBucket: "space-exposure-d0379.appspot.com",
+
+	messagingSenderId: "963000608298",
+
+	appId: "1:963000608298:web:985c5a76757cdd41f9c553",
+}
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig)
+// Create a root reference
+const storageRef = getStorage()
 
 // 1. Create a component that consumes the `useRadio` hook
 function RadioCard(props) {
@@ -70,10 +91,12 @@ function RadioCard(props) {
  * @param {ImageBitmap} imageBitmapA
  * @param {ImageBitmap} imageBitmapB
  * @param {boolean} debug
- * @returns {boolean}
+ * @returns {{result: boolean, score: number, c}} myObj
+
  */
 function compareImages(imageBitmapA, imageBitmapB, debug = false) {
 	console.log("COMPARE IMAGES")
+	console.log({ imageBitmapA, imageBitmapB })
 	let width
 	let height
 	if (
@@ -86,7 +109,7 @@ function compareImages(imageBitmapA, imageBitmapB, debug = false) {
 		console.error(
 			`image A is ${imageBitmapA.width}x${imageBitmapA.height}px and image B is ${imageBitmapB.width}x${imageBitmapB.height}px so cannot compare`
 		)
-		return false
+		return { result: false, score: 0 }
 	}
 
 	const canvas = document.createElement("canvas")
@@ -115,19 +138,13 @@ function compareImages(imageBitmapA, imageBitmapB, debug = false) {
 	}
 	console.log({ imageScore })
 	if (imageScore > 0 && imageScore < 200000) {
-		// if (debug) {
-		// 	const canvas2 = document.createElement("canvas")
-		// 	const capturedFrames = document.getElementById("capturedFrames")
-
-		// 	canvas2.width = imageBitmapB.width
-		// 	canvas2.height = imageBitmapB.height
-		// 	const ctx2 = canvas2.getContext("bitmaprenderer")
-		// 	ctx2.transferFromImageBitmap(imageBitmapB)
-		// 	capturedFrames.appendChild(canvas2)
-		// }
-		return true
+		if (debug) {
+			const capturedFrames = document.getElementById("capturedFrames")
+			capturedFrames.appendChild(canvas)
+		}
+		return { result: true, score: imageScore }
 	} else {
-		return false
+		return { result: false, score: 0 }
 	}
 }
 
@@ -149,6 +166,7 @@ function App() {
 	const [numberOfImages, setNumberOfImages] = useState(30)
 	const [hasAlarm, setHasAlarm] = useState(true)
 	const [hasCountdown, setHasCountdown] = useState(true)
+	const [debugMessage, setDebugMessage] = useState("")
 
 	const { isOpen, onOpen, onClose } = useDisclosure()
 
@@ -171,7 +189,7 @@ function App() {
 			streamRef.current = stream
 			handleSuccess()
 		} catch (e) {
-			handleError(e)
+			console.error(e)
 		}
 	}
 
@@ -276,7 +294,11 @@ function App() {
 		await readable.pipeTo(writableStream)
 	}
 
-	function stopStreamedVideo() {
+	function sleep(ms) {
+		return new Promise((resolve) => setTimeout(resolve, ms))
+	}
+
+	async function stopStreamedVideo() {
 		const videoPreview = document.querySelector("#video-preview")
 		videoPreview.srcObject = null
 		const stream = streamRef.current
@@ -287,59 +309,76 @@ function App() {
 			track.stop()
 			setIsRecording(false)
 		})
-		const canvas = document.createElement("canvas")
-		const video = document.querySelector("video")
-		canvas.width = video.videoWidth
-		canvas.height = video.videoHeight
 
-		imageBMP.current.forEach(async ({ bitmap, last }, i) => {
-			const ctx = canvas.getContext("2d", {
-				willReadFrequently: true,
-			})
-			ctx.globalCompositeOperation = "differencexport"
-			ctx.drawImage(bitmap, 0, 0)
-			let diff = ctx.getImageData(0, 0, video.videoWidth, video.videoHeight)
-
-			var PIXEL_SCORE_THRESHOLD = 32
-			var imageScore = 0
-			console.log({ diff })
-			for (var i = 0; i < diff.data.length; i += 4) {
-				var r = diff.data[i] / 3
-				var g = diff.data[i + 1] / 3
-				var b = diff.data[i + 2] / 3
-				var pixelScore = r + g + b
-				if (pixelScore >= PIXEL_SCORE_THRESHOLD) {
-					imageScore++
-				}
-			}
-			console.log({ imageScore })
-			onOpen()
-			if (imageScore > 5 && imageScore < 200000) {
-				const canvas2 = document.createElement("canvas")
-				const capturedFrames = document.getElementById("capturedFrames")
-
-				canvas2.width = bitmap.width
-				canvas2.height = bitmap.height
-				const ctx2 = canvas2.getContext("bitmaprenderer")
-				ctx2.transferFromImageBitmap(bitmap)
-				capturedFrames.appendChild(canvas2)
-				// Upload to firebase
-				// const blob2 = await new Promise((res) => canvas2.toBlob(res));
-				// var imagesRef = window.ref(window.storageRef, `${datestring}/${i}-${last}`);
-				// window.uploadBytes(imagesRef, blob2).then((snapshot) => {
-				//     console.log('Uploaded a blob or file!');
-				// });
-			}
+		onOpen(() => {
+			console.log("OPENNED")
 		})
-	}
+		await sleep(1000)
+		const suggestedFrames = document.getElementById("suggestedFrames")
 
-	function handleError(error) {
-		// if (error.name === 'NotAllowedError') {
-		//     errorMsg('Permissions have not been granted to use your camera, ' +
-		//         'you need to allow the page access to your devices in ' +
-		//         'order for the demo to work.');
-		// }
-		// errorMsg(`getUserMedia error: ${error.name}`, error);
+		// Upload to firebase
+		// const imageBMP2 = imageBMP.current.slice()
+		// var imagesRef = ref(
+		// 	storageRef,
+		// 	`${datestring}/${frameCount}-${last}`
+		// )
+		// uploadBytes(imagesRef, bitmap).then((e) => {
+		// 	frame.close()
+		// 	console.log(e)
+		// })
+		console.log(`Number of frames captured: ${imageBMP.current.length}`)
+		let imageBMPFiltered = imageBMP.current.reduce(
+			(accumulator, { bitmap, last }, i) => {
+				console.log(accumulator)
+				console.log({ bitmap, last })
+
+				if (i === 0) return accumulator
+				let compare = compareImages(bitmap, imageBMP.current[i - 1].bitmap)
+				if (compare.result) {
+					return [
+						...accumulator,
+						{ ...imageBMP.current[i], score: compare.score },
+					]
+				} else {
+					return accumulator
+				}
+			},
+			[]
+		)
+		console.log({ imageBMPFiltered })
+		console.log(`Number of frames suggested: ${imageBMPFiltered.length}`)
+		const pinfo = document.createElement("p")
+		pinfo.textContent = `Suggested Frames: ${imageBMPFiltered.length}/${imageBMP.current.length}`
+		suggestedFrames.appendChild(pinfo)
+
+		// await new Promise((resolve, reject) =>
+		// 	imageBMPFiltered.forEach(async ({ bitmap, last, score }, i) => {
+		// 		console.log(suggestedFrames)
+		// 		const canvas2 = document.createElement("canvas")
+		// 		canvas2.width = bitmap.width
+		// 		canvas2.height = bitmap.height
+		// 		const ctx2 = canvas2.getContext("bitmaprenderer")
+		// 		ctx2.transferFromImageBitmap(bitmap)
+		// 		suggestedFrames.appendChild(canvas2)
+		// 		const p = document.createElement("p")
+		// 		p.textContent = `Difference score: ${score}`
+		// 		suggestedFrames.appendChild(p)
+		// 		if (i === imageBMPFiltered.length - 1) {
+		// 			resolve()
+		// 		}
+		// 	})
+		// )
+		imageBMP.current.forEach(async ({ bitmap, last }, i) => {
+			const canvas3 = document.createElement("canvas")
+			canvas3.width = bitmap.width
+			canvas3.height = bitmap.height
+			const ctx2 = canvas3.getContext("bitmaprenderer")
+			ctx2.transferFromImageBitmap(bitmap)
+			const blob3 = await new Promise((res) => canvas3.toBlob(res))
+			console.log(blob3)
+			var imagesRef = ref(storageRef, `${datestring}/${i}-${last}`)
+			await uploadBytes(imagesRef, blob3)
+		})
 	}
 
 	const options = Object.values(TIMER_VALUES)
@@ -356,32 +395,35 @@ function App() {
 	return (
 		<div className="App">
 			<header className="App-header">
-				<>
-					<Modal isOpen={isOpen} onClose={onClose}>
-						<ModalOverlay />
-						<ModalContent>
-							<ModalHeader>Suggested Photos</ModalHeader>
-							<ModalCloseButton />
-							<ModalBody>
-								<Flex direction="column" id="capturedFrames"></Flex>
-							</ModalBody>
-							<ModalFooter>
-								<Button variant="ghost" onClick={onClose}>
-									Close
-								</Button>
-								<Button colorScheme="blue" mr={3}>
-									Save
-								</Button>
-							</ModalFooter>
-						</ModalContent>
-					</Modal>
-				</>
+				<Modal isOpen={isOpen} onClose={onClose}>
+					<ModalOverlay />
+					<ModalContent>
+						<ModalHeader>Suggested Photos</ModalHeader>
+						<ModalCloseButton />
+						<ModalBody>
+							<Flex
+								direction="column"
+								id="suggestedFrames"
+								width="320px"
+							></Flex>
+						</ModalBody>
+						<ModalFooter>
+							<Button variant="ghost" onClick={onClose}>
+								Close
+							</Button>
+							<Button colorScheme="blue" mr={3} isDisabled>
+								Save
+							</Button>
+						</ModalFooter>
+					</ModalContent>
+				</Modal>
 				<Flex align="center" width="100%">
 					<img src={logo} className="App-logo" alt="logo" />
 					<Heading fontSize="6xl" colorScheme="blue">
 						SSA
 					</Heading>
 				</Flex>
+				<Text color="InfoText">{debugMessage}</Text>
 				<Button
 					colorScheme="blue"
 					onClick={() => {
@@ -396,6 +438,14 @@ function App() {
 							const bitmap = await createImageBitmap(imageA)
 							imageABitmap = bitmap
 							console.log({ bitmap })
+							if (imageABitmap && imageBBitmap) {
+								let res = compareImages(imageABitmap, imageBBitmap, true)
+								if (res.result) {
+									setDebugMessage(`Passed image comparison test ${res.score}`)
+								} else {
+									setDebugMessage("Failed image comparison test")
+								}
+							}
 						}
 						imageA.src = image1
 
@@ -403,12 +453,16 @@ function App() {
 							const bitmap = await createImageBitmap(imageB)
 							imageBBitmap = bitmap
 							console.log({ bitmap })
+							if (imageABitmap && imageBBitmap) {
+								let res = compareImages(imageABitmap, imageBBitmap, true)
+								if (res) {
+									setDebugMessage("Passed image comparison test")
+								} else {
+									setDebugMessage("Failed image comparison test")
+								}
+							}
 						}
 						imageB.src = image2
-						console.log(imageABitmap, imageBBitmap)
-						if (imageABitmap && imageBBitmap) {
-							compareImages(imageABitmap, imageBBitmap, true)
-						}
 					}}
 				>
 					Test Compare Images
@@ -487,7 +541,7 @@ function App() {
 						<FormLabel htmlFor="alarm" mb="0">
 							Alarm when finished
 						</FormLabel>
-						<Switch id="alarm" defaultChecked />
+						<Switch id="alarm" defaultChecked isDisabled />
 					</FormControl>
 				)}
 				<FormControl display="flex" alignItems="center">
@@ -500,7 +554,7 @@ function App() {
 					>
 						5 second timer before start
 					</FormLabel>
-					<Switch id="countdown" defaultChecked />
+					<Switch id="countdown" defaultChecked isDisabled />
 				</FormControl>
 
 				{isRecording ? (
@@ -534,7 +588,7 @@ function App() {
 					</Button>
 				)}
 				<video id="video-raw" autoPlay playsInline></video>
-				<Flex direction="column" id="capturedFrames"></Flex>
+				<Flex direction="column" id="capturedFrames" w="480px"></Flex>
 			</header>
 		</div>
 	)
