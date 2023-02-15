@@ -94,35 +94,99 @@ self.addEventListener("message", (event) => {
 	}
 })
 
-// Any other custom service worker logic can go here.
+let canvasA = null
+/**
+ * @param {ImageBitmap} imageBitmapA
+ * @param {ImageBitmap} imageBitmapB
+ * @param {boolean} debug
+ * @returns {{result: boolean, score: number, c}} myObj
 
+ */
+function compareImages(canvas, imageBitmapA, imageBitmapB, debug = false) {
+	console.log("COMPARE IMAGES")
+	console.log({ imageBitmapA, imageBitmapB })
+	let width
+	let height
+	if (
+		imageBitmapA.width === imageBitmapB.width &&
+		imageBitmapA.height === imageBitmapB.height
+	) {
+		width = imageBitmapA.width
+		height = imageBitmapB.width
+	} else {
+		console.error(
+			`image A is ${imageBitmapA.width}x${imageBitmapA.height}px and image B is ${imageBitmapB.width}x${imageBitmapB.height}px so cannot compare`
+		)
+		return { result: false, score: 0 }
+	}
+
+	canvas.width = width
+	canvas.height = height
+
+	const ctx = canvas.getContext("2d", {
+		willReadFrequently: true,
+	})
+	ctx.globalCompositeOperation = "difference"
+	ctx.drawImage(imageBitmapA, 0, 0)
+	ctx.drawImage(imageBitmapB, 0, 0)
+	let diff = ctx.getImageData(0, 0, width, height)
+
+	var PIXEL_SCORE_THRESHOLD = 16
+	var imageScore = 0
+
+	for (var i = 0; i < diff.data.length; i += 4) {
+		var r = diff.data[i] / 3
+		var g = diff.data[i + 1] / 3
+		var b = diff.data[i + 2] / 3
+		var pixelScore = r + g + b
+		if (pixelScore >= PIXEL_SCORE_THRESHOLD) {
+			imageScore++
+		}
+	}
+	if (imageScore > 0 && imageScore < 200000) {
+		return { result: true, score: imageScore }
+	} else {
+		return { result: false, score: 0 }
+	}
+}
+
+// Any other custom service worker logic can go here.
 let canvasB = null
 let group = null
 let bitmap = null
 // Waiting to receive the OffScreenCanvas
 self.addEventListener("message", (event) => {
-	const datestring = new Date().toString()
-	if (event.data.canvas) {
-		canvasB = event.data.canvas
+	if (event.data.canvasA) {
+		canvasA = event.data.canvasA
+	} else if (event.data.canvasB) {
+		canvasB = event.data.canvasB
 	} else {
-		bitmap = event.data.bitmap
-		group = event.data.group
-		let count = 0
-		const canvas = canvasB
-		canvas.width = bitmap.width
-		canvas.height = bitmap.height
-		const ctx = canvas.getContext("bitmaprenderer")
-		ctx.transferFromImageBitmap(bitmap)
-		console.log(canvas)
+		const datestring = new Date().toString()
+		if (bitmap !== null) {
+			const { result, score } = compareImages(event.data.bitmap, bitmap)
+			bitmap = event.data.bitmap
+			if (result) {
+				console.log("detected a positive diff, uploading image")
+				let count = 0
+				const canvas = canvasB
+				canvas.width = bitmap.width
+				canvas.height = bitmap.height
+				const ctx = canvas.getContext("bitmaprenderer")
+				ctx.transferFromImageBitmap(bitmap)
 
-		canvas
-			.convertToBlob({ type: "image/jpeg", quality: 0.99 })
-			.then(async (res) => {
-				console.log(res)
-				count = count + 1
-				var imagesRef = ref(storageRef, `${group}/${datestring}`)
-				await uploadBytes(imagesRef, res)
-				console.log(`uploaded to firebase ${group}/${datestring}`)
-			})
+				canvas
+					.convertToBlob({ type: "image/jpeg", quality: 0.99 })
+					.then(async (res) => {
+						console.log(res)
+						count = count + 1
+						var imagesRef = ref(storageRef, `${group}/${datestring}`)
+						await uploadBytes(imagesRef, res)
+						console.log(`uploaded to firebase ${group}/${datestring}`)
+					})
+			}
+		} else {
+			bitmap = event.data.bitmap
+			group = event.data.group
+		}
 	}
 })

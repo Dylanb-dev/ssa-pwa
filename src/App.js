@@ -68,65 +68,6 @@ function RadioCard(props) {
 		</Box>
 	)
 }
-/**
- * @param {ImageBitmap} imageBitmapA
- * @param {ImageBitmap} imageBitmapB
- * @param {boolean} debug
- * @returns {{result: boolean, score: number, c}} myObj
-
- */
-function compareImages(imageBitmapA, imageBitmapB, debug = false) {
-	console.log("COMPARE IMAGES")
-	console.log({ imageBitmapA, imageBitmapB })
-	let width
-	let height
-	if (
-		imageBitmapA.width === imageBitmapB.width &&
-		imageBitmapA.height === imageBitmapB.height
-	) {
-		width = imageBitmapA.width
-		height = imageBitmapB.width
-	} else {
-		console.error(
-			`image A is ${imageBitmapA.width}x${imageBitmapA.height}px and image B is ${imageBitmapB.width}x${imageBitmapB.height}px so cannot compare`
-		)
-		return { result: false, score: 0 }
-	}
-
-	const canvas = document.createElement("canvas")
-	canvas.width = width
-	canvas.height = height
-
-	const ctx = canvas.getContext("2d", {
-		willReadFrequently: true,
-	})
-	ctx.globalCompositeOperation = "difference"
-	ctx.drawImage(imageBitmapA, 0, 0)
-	ctx.drawImage(imageBitmapB, 0, 0)
-	let diff = ctx.getImageData(0, 0, width, height)
-
-	var PIXEL_SCORE_THRESHOLD = 16
-	var imageScore = 0
-
-	for (var i = 0; i < diff.data.length; i += 4) {
-		var r = diff.data[i] / 3
-		var g = diff.data[i + 1] / 3
-		var b = diff.data[i + 2] / 3
-		var pixelScore = r + g + b
-		if (pixelScore >= PIXEL_SCORE_THRESHOLD) {
-			imageScore++
-		}
-	}
-	if (imageScore > 0 && imageScore < 200000) {
-		if (debug) {
-			const capturedFrames = document.getElementById("capturedFrames")
-			capturedFrames.appendChild(canvas)
-		}
-		return { result: true, score: imageScore }
-	} else {
-		return { result: false, score: 0 }
-	}
-}
 
 function App() {
 	const VIEW_WIDTH = Math.max(
@@ -250,11 +191,19 @@ function App() {
 		let frameCount = 0
 		const datestring = new Date().toString()
 		const queuingStrategy = new CountQueuingStrategy({ highWaterMark: 1 })
-		let canvasB = document.createElement("canvas")
-		let canvasWorker = canvasB.transferControlToOffscreen()
 
-		navigator.serviceWorker.controller.postMessage({ canvas: canvasWorker }, [
-			canvasWorker,
+		let canvasA = document.createElement("canvas")
+		let canvasB = document.createElement("canvas")
+
+		let canvasWorkerA = canvasA.transferControlToOffscreen()
+		let canvasWorkerB = canvasB.transferControlToOffscreen()
+
+		navigator.serviceWorker.controller.postMessage({ canvasA: canvasWorkerA }, [
+			canvasWorkerA,
+		])
+
+		navigator.serviceWorker.controller.postMessage({ canvasB: canvasWorkerB }, [
+			canvasWorkerB,
 		])
 
 		const writableStream = new WritableStream(
@@ -781,4 +730,4 @@ function App() {
 	)
 }
 
-export { App, compareImages }
+export { App }
