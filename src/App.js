@@ -187,8 +187,6 @@ function App() {
 		console.log(stream)
 		const video = document.querySelector("#video-preview")
 		video.srcObject = stream
-		// // const rawVideo = document.querySelector('#video-raw');
-		// // rawVideo.srcObject = stream;
 
 		const [track] = stream.getVideoTracks()
 		document.createElement("canvas")
@@ -775,7 +773,6 @@ function App() {
 						colorScheme="red"
 					>{`Finished Recording Successfully`}</Text>
 				)}
-				<video id="video-raw" autoPlay playsInline></video>
 				<canvas id="worker"></canvas>
 				<canvas id="download"></canvas>
 				<Flex direction="column" id="capturedFrames" w="480px"></Flex>
