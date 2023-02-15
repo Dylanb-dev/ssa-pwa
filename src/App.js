@@ -414,10 +414,6 @@ function App() {
 		}
 	}, [framesCaptured])
 
-	useEffect(() => {
-		onOpen()
-	}, [])
-
 	return (
 		<div className="App">
 			<header className="App-header">
