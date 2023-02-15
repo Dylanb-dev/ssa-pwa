@@ -213,7 +213,7 @@ function App() {
 						exposureMode: "manual",
 						whiteBalanceMode: "manual",
 						focusMode: "manual",
-						colorTemperature: 3000,
+						colorTemperature: Math.max(3000, capabilities.colorTemperature.min),
 					},
 				],
 			})
@@ -414,6 +414,10 @@ function App() {
 		}
 	}, [framesCaptured])
 
+	useEffect(() => {
+		onOpen()
+	}, [])
+
 	return (
 		<div className="App">
 			<header className="App-header">
@@ -461,7 +465,7 @@ function App() {
 				<Flex align="center" width="100%">
 					<img src={logo} className="App-logo" alt="logo" />
 					<Heading fontSize="6xl" colorScheme="blue">
-						SSA feb15.4
+						SSA feb15.5
 					</Heading>
 				</Flex>
 				<Text color="InfoText" fontSize="sm">
