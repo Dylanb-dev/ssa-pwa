@@ -461,7 +461,7 @@ function App() {
 				<Flex align="center" width="100%">
 					<img src={logo} className="App-logo" alt="logo" />
 					<Heading fontSize="6xl" colorScheme="blue">
-						SSA
+						SSA feb15.1
 					</Heading>
 				</Flex>
 				<Text color="InfoText" fontSize="sm">
