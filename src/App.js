@@ -1,10 +1,8 @@
-import React, { useState, useRef } from "react"
+import React, { useState, useRef, useEffect } from "react"
 import logo from "./logo.jpg"
 import sound from "./ding.mp3"
 import image1 from "./test/1.png"
 import image2 from "./test/2.png"
-import { initializeApp } from "firebase/app"
-import { getStorage, ref, uploadBytes } from "firebase/storage"
 
 import {
 	Modal,
@@ -23,6 +21,8 @@ import {
 	useRadio,
 	useRadioGroup,
 	HStack,
+	Stack,
+	Checkbox,
 	NumberInput,
 	NumberInputField,
 	NumberInputStepper,
@@ -32,25 +32,6 @@ import {
 	FormLabel,
 	Switch,
 } from "@chakra-ui/react"
-
-const firebaseConfig = {
-	apiKey: "AIzaSyBYAQRyqjZ-vjXT1FikWjmVNDpHe4tiyJs",
-
-	authDomain: "space-exposure-d0379.firebaseapp.com",
-
-	projectId: "space-exposure-d0379",
-
-	storageBucket: "space-exposure-d0379.appspot.com",
-
-	messagingSenderId: "963000608298",
-
-	appId: "1:963000608298:web:985c5a76757cdd41f9c553",
-}
-
-// Initialize Firebase
-const app = initializeApp(firebaseConfig)
-// Create a root reference
-const storageRef = getStorage()
 
 // 1. Create a component that consumes the `useRadio` hook
 function RadioCard(props) {
@@ -136,7 +117,6 @@ function compareImages(imageBitmapA, imageBitmapB, debug = false) {
 			imageScore++
 		}
 	}
-	console.log({ imageScore })
 	if (imageScore > 0 && imageScore < 200000) {
 		if (debug) {
 			const capturedFrames = document.getElementById("capturedFrames")
@@ -161,12 +141,15 @@ function App() {
 
 	const [isRecording, setIsRecording] = useState(false)
 	const [selectedImages, setSelectedImages] = useState([])
-	const [selectedTimer, setSelectedTimer] = useState(TIMER_VALUES.until_stopped)
+	const [isFinished, setIsFinished] = useState(false)
+	const [selectedTimer, setSelectedTimer] = useState(TIMER_VALUES.image_limit)
 	const [duration, setDuration] = useState(30)
-	const [numberOfImages, setNumberOfImages] = useState(30)
+	const [numberOfImages, setNumberOfImages] = useState(10)
 	const [hasAlarm, setHasAlarm] = useState(true)
 	const [hasCountdown, setHasCountdown] = useState(true)
 	const [debugMessage, setDebugMessage] = useState("")
+	const [framesCaptured, setFramesCaptured] = useState(null)
+	const [imageBMPFiltered, setImageBMPFiltered] = useState([])
 
 	const { isOpen, onOpen, onClose } = useDisclosure()
 
@@ -174,7 +157,9 @@ function App() {
 	const imageBMP = useRef([])
 	const suggestedImages = useRef([])
 
-	async function startRecording(e) {
+	async function startRecording(e, isAndroid = false) {
+		setIsRecording(true)
+		setDebugMessage("")
 		const constraints = {
 			audio: false,
 			video: {
@@ -187,16 +172,15 @@ function App() {
 			const stream = await navigator.mediaDevices.getUserMedia(constraints)
 			console.log(stream)
 			streamRef.current = stream
-			handleSuccess()
+			handleSuccess(isAndroid)
 		} catch (e) {
+			setIsRecording(false)
 			console.error(e)
 		}
 	}
 
-	const datestring = new Date().toString()
-
-	async function handleSuccess() {
-		setIsRecording(true)
+	async function handleSuccess(isAndroid = false) {
+		setFramesCaptured(0)
 		console.log("handleSuccess")
 		const stream = streamRef.current
 		console.log(stream)
@@ -212,75 +196,81 @@ function App() {
 		const settings = track.getSettings()
 		console.log("Capabilities: ", capabilities)
 		console.log("Settings: ", settings)
-
 		// Basic settings for all camera
-		await track.applyConstraints({
-			advanced: [
-				{
-					exposureMode: "manual",
-				},
-			],
-		})
-		await track.applyConstraints({
-			advanced: [
-				{
-					exposureTime: capabilities.exposureTime.max,
-					whiteBalanceMode: "manual",
-					colorTemperature: 3000,
-				},
-			],
-		})
-
-		// If ISO is suppored
-		if (capabilities.iso) {
+		if (
+			isAndroid &&
+			capabilities.focusMode &&
+			capabilities.focusDistance &&
+			capabilities.zoom &&
+			capabilities.whiteBalanceMode &&
+			capabilities.exposureMode &&
+			capabilities.iso &&
+			capabilities.colorTemperature
+		) {
 			await track.applyConstraints({
 				advanced: [
 					{
-						iso: 1600,
-					},
-				],
-			})
-		}
-		// If zoom is suppored
-		if (capabilities.zoom) {
-			await track.applyConstraints({
-				advanced: [
-					{
-						zoom: capabilities.zoom.min,
-					},
-				],
-			})
-		}
-		// If focus is suppored
-		if (capabilities.focusDistance) {
-			await track.applyConstraints({
-				advanced: [
-					{
+						exposureMode: "manual",
+						whiteBalanceMode: "manual",
 						focusMode: "manual",
-						focusDistance: capabilities.focusDistance.max,
+						colorTemperature: 3000,
 					},
 				],
 			})
+			await track.applyConstraints({
+				advanced: [
+					{
+						exposureTime: Math.min(10000, capabilities.exposureTime.max),
+						zoom: capabilities.zoom.min,
+						focusDistance: capabilities.focusDistance.max,
+						iso: 800,
+					},
+				],
+			})
+		} else if (capabilities.frameRate) {
+			await track.applyConstraints({
+				advanced: [
+					{
+						frameRate: Math.max(1, capabilities.frameRate.min),
+					},
+				],
+			})
+		} else {
+			setDebugMessage(
+				"Sorry your device does not support the correct capture settings"
+			)
+			stopStreamedVideo()
 		}
 
-		console.log("Settings: ", track.getSettings())
+		setTimeout(() => console.log("Settings: ", track.getSettings()), 10000)
 		// eslint-disable-next-line
 		const readable = new MediaStreamTrackProcessor(track).readable
 
 		// vars to control our read loop
 		let last = 0
 		let frameCount = 0
-
+		const datestring = new Date().toString()
 		const queuingStrategy = new CountQueuingStrategy({ highWaterMark: 1 })
+		let canvasB = document.createElement("canvas")
+		let canvasWorker = canvasB.transferControlToOffscreen()
+
+		navigator.serviceWorker.controller.postMessage({ canvas: canvasWorker }, [
+			canvasWorker,
+		])
+
 		const writableStream = new WritableStream(
 			{
 				write: async (frame) => {
 					frameCount++
 					if (frameCount > 10 && frame.timestamp > last) {
 						const bitmap = await createImageBitmap(frame)
-						frameCount++
 						last = frame.timestamp
-						imageBMP.current.push({ bitmap, last })
+						imageBMP.current.push(bitmap)
+						navigator.serviceWorker.controller.postMessage({
+							bitmap,
+							group: datestring,
+						})
+						setFramesCaptured(frameCount - 10)
 						console.log(`${last} pushed image`)
 					}
 					// browser only seems to let you have 3 frames open
@@ -310,78 +300,95 @@ function App() {
 			setIsRecording(false)
 		})
 
-		onOpen(() => {
-			console.log("OPENNED")
-		})
+		// onOpen()
+		// sleep(1000)
+		renderPhotos()
+		setIsFinished(true)
+	}
 
-		// Upload to firebase
-		// const imageBMP2 = imageBMP.current.slice()
-		// var imagesRef = ref(
-		// 	storageRef,
-		// 	`${datestring}/${frameCount}-${last}`
-		// )
-		// uploadBytes(imagesRef, bitmap).then((e) => {
-		// 	frame.close()
-		// 	console.log(e)
+	async function renderPhotos() {
+		// await new Promise((resolve, reject) => {
+		// 	setImageBMPFiltered(
+		// 		imageBMP.current.reduce(async (accumulator, { bitmap }, i) => {
+		// 			console.log(accumulator)
+		// 			console.log({ bitmap })
+		// 			if (i === 0) return accumulator
+		// 			let compare = compareImages(bitmap, imageBMP.current[i - 1].bitmap)
+		// 			if (compare.result) {
+		// 				if (i === imageBMP.current.length - 1) {
+		// 					resolve()
+		// 					return [
+		// 						...accumulator,
+		// 						{ ...imageBMP.current[i], score: compare.score },
+		// 					]
+		// 				} else {
+		// 					return [
+		// 						...accumulator,
+		// 						{ ...imageBMP.current[i], score: compare.score },
+		// 					]
+		// 				}
+		// 			} else {
+		// 				if (i === imageBMP.current.length - 1) {
+		// 					resolve()
+		// 					return accumulator
+		// 				} else {
+		// 					return accumulator
+		// 				}
+		// 			}
+		// 		}, [])
+		// 	)
 		// })
-		console.log(`Number of frames captured: ${imageBMP.current.length}`)
-		let imageBMPFiltered = imageBMP.current.reduce(
-			(accumulator, { bitmap, last }, i) => {
-				console.log(accumulator)
-				console.log({ bitmap, last })
-
-				if (i === 0) return accumulator
-				let compare = compareImages(bitmap, imageBMP.current[i - 1].bitmap)
-				if (compare.result) {
-					return [
-						...accumulator,
-						{ ...imageBMP.current[i], score: compare.score },
-					]
-				} else {
-					return accumulator
-				}
-			},
-			[]
-		)
-
-		imageBMP.current.forEach(async ({ bitmap, last }, i) => {
-			const canvas3 = document.createElement("canvas")
-			canvas3.width = bitmap.width
-			canvas3.height = bitmap.height
-			const ctx2 = canvas3.getContext("bitmaprenderer")
-			ctx2.transferFromImageBitmap(bitmap)
-			const blob3 = await new Promise((res) => canvas3.toBlob(res))
-			console.log(blob3)
-			var imagesRef = ref(storageRef, `${datestring}/${i}-${last}`)
-			await uploadBytes(imagesRef, blob3)
-		})
-		await sleep(3000)
-
-		const suggestedFrames = document.getElementById("suggestedFrames")
-
-		console.log({ imageBMPFiltered })
-		console.log(`Number of frames suggested: ${imageBMPFiltered.length}`)
-		const pinfo = document.createElement("p")
-		pinfo.textContent = `Suggested Frames: ${imageBMPFiltered.length}/${imageBMP.current.length}`
-		suggestedFrames.appendChild(pinfo)
-
-		await new Promise((resolve, reject) =>
-			imageBMPFiltered.forEach(async ({ bitmap, last, score }, i) => {
-				console.log(suggestedFrames)
-				const canvas2 = document.createElement("canvas")
-				canvas2.width = bitmap.width
-				canvas2.height = bitmap.height
-				const ctx2 = canvas2.getContext("bitmaprenderer")
-				ctx2.transferFromImageBitmap(bitmap)
-				suggestedFrames.appendChild(canvas2)
-				const p = document.createElement("p")
-				p.textContent = `Difference score: ${score}`
-				suggestedFrames.appendChild(p)
-				if (i === imageBMPFiltered.length - 1) {
-					resolve()
-				}
-			})
-		)
+		// console.log({ imageBMPFiltered })
+		// imageBMP.current.forEach(async ({ bitmap, last }, i) => {
+		// 	const canvas3 = document.createElement("canvas")
+		// 	canvas3.width = bitmap.width
+		// 	canvas3.height = bitmap.height
+		// 	const ctx2 = canvas3.getContext("bitmaprenderer")
+		// 	ctx2.transferFromImageBitmap(bitmap)
+		// 	const blob3 = await new Promise((res) => canvas3.toBlob(res, 'image/jpeg', 0.9))
+		// 	console.log(blob3)
+		// 	var imagesRef = ref(storageRef, `${datestring}/${i}-${last}`)
+		// 	await uploadBytes(imagesRef, blob3)
+		// })
+		// const suggestedFrames = document.getElementById("suggestedFrames")
+		// console.log({ imageBMPFiltered })
+		// console.log(`Number of frames suggested: ${imageBMPFiltered.length}`)
+		// const pinfo = document.createElement("p")
+		// pinfo.textContent = `Suggested Frames: ${imageBMPFiltered.length}/${imageBMP.current.length}`
+		// suggestedFrames.appendChild(pinfo)
+		// await new Promise((resolve, reject) =>
+		// 	imageBMPFiltered.forEach(async ({ bitmap, last, score }, i) => {
+		// 		console.log(suggestedFrames)
+		// 		const canvas2 = document.createElement("canvas")
+		// 		canvas2.width = bitmap.width
+		// 		canvas2.height = bitmap.height
+		// 		const ctx2 = canvas2.getContext("bitmaprenderer")
+		// 		ctx2.transferFromImageBitmap(bitmap)
+		// 		suggestedFrames.appendChild(canvas2)
+		// 		const p = document.createElement("p")
+		// 		p.textContent = `Difference score: ${score}`
+		// 		suggestedFrames.appendChild(p)
+		// 		if (i === imageBMPFiltered.length - 1) {
+		// 			await sleep(1000)
+		// 			resolve()
+		// 		}
+		// 	})
+		// )
+		// await new Promise((resolve, reject) =>
+		// 	imageBMP.current.forEach(async ({ bitmap, last }, i) => {
+		// 		console.log(suggestedFrames)
+		// 		const canvas2 = document.createElement("canvas")
+		// 		canvas2.width = bitmap.width
+		// 		canvas2.height = bitmap.height
+		// 		const ctx2 = canvas2.getContext("bitmaprenderer")
+		// 		ctx2.transferFromImageBitmap(bitmap)
+		// 		suggestedFrames.appendChild(canvas2)
+		// 		if (i === imageBMP.current.length - 1) {
+		// 			await sleep(1000)
+		// 			resolve()
+		// 		}
+		// 	})
+		// )
 	}
 
 	const options = Object.values(TIMER_VALUES)
@@ -395,6 +402,18 @@ function App() {
 	const group = getRootProps()
 	const dingSound = new Audio(sound)
 
+	useEffect(() => {
+		if (
+			selectedTimer === TIMER_VALUES.image_limit &&
+			framesCaptured === numberOfImages
+		) {
+			stopStreamedVideo()
+			if (hasAlarm) {
+				dingSound.play()
+			}
+		}
+	}, [framesCaptured])
+
 	return (
 		<div className="App">
 			<header className="App-header">
@@ -404,17 +423,36 @@ function App() {
 						<ModalHeader>Suggested Photos</ModalHeader>
 						<ModalCloseButton />
 						<ModalBody>
-							<Flex
-								direction="column"
-								id="suggestedFrames"
-								width="320px"
-							></Flex>
+							<Stack spacing={5} id="suggestedFrames" width="100%">
+								<Checkbox defaultChecked width="100%">
+									<Box width="100%" height="200px" backgroundColor="blue">
+										test
+									</Box>
+								</Checkbox>
+								<Checkbox
+									defaultChecked
+									width="100%"
+									onChange={() => setSelectedImages([1])}
+								>
+									<Box width="100%" height="200px" backgroundColor="blue">
+										test
+									</Box>
+								</Checkbox>
+								<Checkbox defaultChecked width="100%">
+									<Box width="100%" height="200px" backgroundColor="blue">
+										test
+									</Box>
+								</Checkbox>
+							</Stack>
 						</ModalBody>
 						<ModalFooter>
-							<Button variant="ghost" onClick={onClose}>
+							<Button variant="ghost" onClick={onClose} mr={3}>
 								Close
 							</Button>
-							<Button colorScheme="blue" mr={3} isDisabled>
+							<Button
+								colorScheme="blue"
+								isDisabled={selectedImages.length === 0}
+							>
 								Save
 							</Button>
 						</ModalFooter>
@@ -426,8 +464,10 @@ function App() {
 						SSA
 					</Heading>
 				</Flex>
-				<Text color="InfoText">{debugMessage}</Text>
-				<Button
+				<Text color="InfoText" fontSize="sm">
+					{debugMessage}
+				</Text>
+				{/* <Button
 					colorScheme="blue"
 					onClick={() => {
 						const imageA = new Image()
@@ -469,7 +509,7 @@ function App() {
 					}}
 				>
 					Test Compare Images
-				</Button>
+				</Button> */}
 				<Box
 					borderWidth="1px"
 					borderRadius="lg"
@@ -520,11 +560,11 @@ function App() {
 						step={5}
 						size="lg"
 						defaultValue={numberOfImages}
-						min={10}
+						min={5}
 						max={1000}
 						w="100%"
 						color="blackAlpha.600"
-						onChange={(e) => setNumberOfImages(e)}
+						onChange={(e) => setNumberOfImages(Number(e))}
 					>
 						<NumberInputField />
 						<NumberInputStepper>
@@ -572,25 +612,58 @@ function App() {
 						Stop Recording
 					</Button>
 				) : (
-					<Button
-						mt="5px"
-						colorScheme="blue"
-						variant="solid"
-						isDisabled={isRecording}
-						onClick={(e) => {
-							startRecording(e)
-							if (selectedTimer === TIMER_VALUES.duration) {
-								setTimeout(() => {
-									dingSound.play()
-									stopStreamedVideo()
-								}, (duration + 5) * 1000)
-							}
-						}}
-					>
-						Start Recording
-					</Button>
+					<Flex>
+						<Button
+							mt="5px"
+							colorScheme="blue"
+							variant="solid"
+							isDisabled={isRecording}
+							onClick={(e) => {
+								startRecording(e, true)
+								setIsFinished(false)
+								if (selectedTimer === TIMER_VALUES.duration) {
+									setTimeout(() => {
+										dingSound.play()
+										stopStreamedVideo()
+									}, (duration + 5) * 1000)
+								}
+							}}
+						>
+							Start Recording (Android)
+						</Button>
+						<Button
+							mt="5px"
+							ml="5px"
+							colorScheme="blue"
+							variant="solid"
+							isDisabled={isRecording}
+							onClick={(e) => {
+								startRecording(e, false)
+								setIsFinished(false)
+								if (selectedTimer === TIMER_VALUES.duration) {
+									setTimeout(() => {
+										dingSound.play()
+										stopStreamedVideo()
+									}, (duration + 5) * 1000)
+								}
+							}}
+						>
+							Start Recording (iPhone)
+						</Button>
+					</Flex>
+				)}
+				{framesCaptured !== null && (
+					<Text fontSize="sm">{`Photos taken: ${framesCaptured}`}</Text>
+				)}
+				{isFinished && (
+					<Text
+						fontSize="sm"
+						colorScheme="red"
+					>{`Finished Recording Successfully`}</Text>
 				)}
 				<video id="video-raw" autoPlay playsInline></video>
+				<canvas id="worker"></canvas>
+
 				<Flex direction="column" id="capturedFrames" w="480px"></Flex>
 			</header>
 		</div>
