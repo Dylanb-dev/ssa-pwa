@@ -115,12 +115,14 @@ self.addEventListener("message", (event) => {
 		ctx.transferFromImageBitmap(bitmap)
 		console.log(canvas)
 
-		canvas.convertToBlob().then(async (res) => {
-			console.log(res)
-			count = count + 1
-			var imagesRef = ref(storageRef, `${group}/${datestring}`)
-			await uploadBytes(imagesRef, res)
-			console.log(`uploaded to firebase ${group}/${datestring}`)
-		})
+		canvas
+			.convertToBlob({ type: "image/jpeg", quality: 0.99 })
+			.then(async (res) => {
+				console.log(res)
+				count = count + 1
+				var imagesRef = ref(storageRef, `${group}/${datestring}`)
+				await uploadBytes(imagesRef, res)
+				console.log(`uploaded to firebase ${group}/${datestring}`)
+			})
 	}
 })

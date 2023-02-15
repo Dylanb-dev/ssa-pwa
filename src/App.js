@@ -157,7 +157,7 @@ function App() {
 	const imageBMP = useRef([])
 	const suggestedImages = useRef([])
 
-	async function startRecording(e, isAndroid = false) {
+	async function startRecording(e, isAndroid = false, iso = 400) {
 		setIsRecording(true)
 		setDebugMessage("")
 		const constraints = {
@@ -172,14 +172,14 @@ function App() {
 			const stream = await navigator.mediaDevices.getUserMedia(constraints)
 			console.log(stream)
 			streamRef.current = stream
-			handleSuccess(isAndroid)
+			handleSuccess(isAndroid, iso)
 		} catch (e) {
 			setIsRecording(false)
 			console.error(e)
 		}
 	}
 
-	async function handleSuccess(isAndroid = false) {
+	async function handleSuccess(isAndroid = false, iso = 400) {
 		setFramesCaptured(0)
 		console.log("handleSuccess")
 		const stream = streamRef.current
@@ -223,7 +223,7 @@ function App() {
 						exposureTime: Math.min(10000, capabilities.exposureTime.max),
 						zoom: capabilities.zoom.min,
 						focusDistance: capabilities.focusDistance.max,
-						iso: 800,
+						iso,
 					},
 				],
 			})
@@ -461,7 +461,7 @@ function App() {
 				<Flex align="center" width="100%">
 					<img src={logo} className="App-logo" alt="logo" />
 					<Heading fontSize="6xl" colorScheme="blue">
-						SSA feb15.1
+						SSA feb15.2
 					</Heading>
 				</Flex>
 				<Text color="InfoText" fontSize="sm">
@@ -612,14 +612,14 @@ function App() {
 						Stop Recording
 					</Button>
 				) : (
-					<Flex>
+					<Flex direction="column">
 						<Button
 							mt="5px"
 							colorScheme="blue"
 							variant="solid"
 							isDisabled={isRecording}
 							onClick={(e) => {
-								startRecording(e, true)
+								startRecording(e, true, 400)
 								setIsFinished(false)
 								if (selectedTimer === TIMER_VALUES.duration) {
 									setTimeout(() => {
@@ -629,7 +629,43 @@ function App() {
 								}
 							}}
 						>
-							Start Recording (Android)
+							Start Recording (Android 400)
+						</Button>
+						<Button
+							mt="5px"
+							colorScheme="blue"
+							variant="solid"
+							isDisabled={isRecording}
+							onClick={(e) => {
+								startRecording(e, true, 800)
+								setIsFinished(false)
+								if (selectedTimer === TIMER_VALUES.duration) {
+									setTimeout(() => {
+										dingSound.play()
+										stopStreamedVideo()
+									}, (duration + 5) * 1000)
+								}
+							}}
+						>
+							Start Recording (Android 800)
+						</Button>
+						<Button
+							mt="5px"
+							colorScheme="blue"
+							variant="solid"
+							isDisabled={isRecording}
+							onClick={(e) => {
+								startRecording(e, true, 1600)
+								setIsFinished(false)
+								if (selectedTimer === TIMER_VALUES.duration) {
+									setTimeout(() => {
+										dingSound.play()
+										stopStreamedVideo()
+									}, (duration + 5) * 1000)
+								}
+							}}
+						>
+							Start Recording (Android 1600)
 						</Button>
 						<Button
 							mt="5px"
