@@ -231,7 +231,7 @@ function App() {
 			await track.applyConstraints({
 				advanced: [
 					{
-						frameRate: Math.max(1, capabilities.frameRate.min),
+						frameRate: Math.max(3, capabilities.frameRate.min),
 					},
 				],
 			})
@@ -461,7 +461,7 @@ function App() {
 				<Flex align="center" width="100%">
 					<img src={logo} className="App-logo" alt="logo" />
 					<Heading fontSize="6xl" colorScheme="blue">
-						SSA feb15.2
+						SSA feb15.4
 					</Heading>
 				</Flex>
 				<Text color="InfoText" fontSize="sm">
@@ -513,9 +513,8 @@ function App() {
 				<Box
 					borderWidth="1px"
 					borderRadius="lg"
-					overflow="hidden"
 					width="100%"
-					height={Math.min(480 / 2, VIEW_WIDTH / 2)}
+					minHeight={Math.min(480 / 2, VIEW_WIDTH / 2)}
 				>
 					<video id="video-preview" autoPlay playsInline></video>
 					<audio />
