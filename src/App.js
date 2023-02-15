@@ -459,7 +459,17 @@ function App() {
 	return (
 		<div className="App">
 			<header className="App-header">
-				<Modal isOpen={isOpen} onClose={onClose}>
+				<Modal
+					isOpen={isOpen}
+					onClose={() => {
+						onClose()
+						var canvas = document.getElementById("download")
+						var context = canvas.getContext("2d")
+						context.clearRect(0, 0, canvas.width, canvas.height)
+						canvas.width = 0
+						canvas.height = 0
+					}}
+				>
 					<ModalOverlay />
 					<ModalContent>
 						<ModalHeader>Suggested Photos</ModalHeader>
@@ -486,19 +496,27 @@ function App() {
 								})}
 							</Stack>
 						</ModalBody>
-						<canvas id="download"></canvas>
 						<ModalFooter>
-							<Button variant="ghost" onClick={onClose} mr={3}>
+							<Button
+								variant="ghost"
+								onClick={() => {
+									onClose()
+									var canvas = document.getElementById("download")
+									var context = canvas.getContext("2d")
+									context.clearRect(0, 0, canvas.width, canvas.height)
+									canvas.width = 0
+									canvas.height = 0
+								}}
+								mr={3}
+							>
 								Close
 							</Button>
 							<Button
 								colorScheme="blue"
 								onClick={() => {
+									var canvas = document.getElementById("download")
+									var context = canvas.getContext("2d")
 									imageUrls.map((url, i) => {
-										var canvas = document.getElementById("download")
-
-										var context = canvas.getContext("2d")
-
 										// load image from data url
 										var imageObj = new Image()
 										imageObj.onload = function () {
@@ -759,7 +777,7 @@ function App() {
 				)}
 				<video id="video-raw" autoPlay playsInline></video>
 				<canvas id="worker"></canvas>
-
+				<canvas id="download"></canvas>
 				<Flex direction="column" id="capturedFrames" w="480px"></Flex>
 			</header>
 		</div>
