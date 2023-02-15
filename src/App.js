@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react"
+import React, { useState, useRef, useEffect, Component } from "react"
 import logo from "./logo.jpg"
 import sound from "./ding.mp3"
 import image1 from "./test/1.png"
@@ -150,6 +150,7 @@ function App() {
 	const [debugMessage, setDebugMessage] = useState("")
 	const [framesCaptured, setFramesCaptured] = useState(null)
 	const [imageBMPFiltered, setImageBMPFiltered] = useState([])
+	const [checkedItems, setCheckedItems] = React.useState({})
 
 	const { isOpen, onOpen, onClose } = useDisclosure()
 
@@ -414,6 +415,47 @@ function App() {
 		}
 	}, [framesCaptured])
 
+	useEffect(() => {
+		onOpen()
+	}, [])
+
+	let imageUrls = [image1, image2]
+	class ImagePreview extends Component {
+		componentDidMount() {
+			console.log(this.props)
+			var canvas = document.getElementById(
+				`suggested-images-${this.props.index}`
+			)
+			var context = canvas.getContext("2d")
+
+			// load image from data url
+			var imageObj = new Image()
+			imageObj.onload = function () {
+				context.drawImage(this, 0, 0, 350, 450)
+			}
+			console.log(imageObj)
+			imageObj.src = this.props.url
+		}
+
+		shouldComponentUpdate(nextProps) {
+			return this.props.url !== nextProps.url
+		}
+
+		render() {
+			return (
+				<canvas height="400px" id={`suggested-images-${this.props.index}`} />
+			)
+		}
+	}
+
+	console.log("render")
+
+	const handleSelectedImage = (e, i) => {
+		setCheckedItems({ [i]: e.target.checked })
+	}
+
+	console.log(checkedItems)
+
 	return (
 		<div className="App">
 			<header className="App-header">
@@ -424,34 +466,53 @@ function App() {
 						<ModalCloseButton />
 						<ModalBody>
 							<Stack spacing={5} id="suggestedFrames" width="100%">
-								<Checkbox defaultChecked width="100%">
-									<Box width="100%" height="200px" backgroundColor="blue">
-										test
-									</Box>
-								</Checkbox>
-								<Checkbox
-									defaultChecked
-									width="100%"
-									onChange={() => setSelectedImages([1])}
-								>
-									<Box width="100%" height="200px" backgroundColor="blue">
-										test
-									</Box>
-								</Checkbox>
-								<Checkbox defaultChecked width="100%">
-									<Box width="100%" height="200px" backgroundColor="blue">
-										test
-									</Box>
-								</Checkbox>
+								{imageUrls.map((url, i) => {
+									console.log("RENDER")
+									return (
+										<Flex key={`checkbox-${i}`}>
+											<Checkbox
+												defaultChecked
+												width="100%"
+												isChecked={checkedItems[i]}
+												height="400px"
+												onChange={(e) => handleSelectedImage(e, i)}
+											>
+												<Box width="100%" height="400px">
+													<ImagePreview height="400px" url={url} index={i} />
+												</Box>
+											</Checkbox>
+										</Flex>
+									)
+								})}
 							</Stack>
 						</ModalBody>
+						<canvas id="download"></canvas>
 						<ModalFooter>
 							<Button variant="ghost" onClick={onClose} mr={3}>
 								Close
 							</Button>
 							<Button
 								colorScheme="blue"
-								isDisabled={selectedImages.length === 0}
+								onClick={() => {
+									imageUrls.map((url, i) => {
+										var canvas = document.getElementById("download")
+
+										var context = canvas.getContext("2d")
+
+										// load image from data url
+										var imageObj = new Image()
+										imageObj.onload = function () {
+											canvas.width = this.width
+											canvas.height = this.height
+											context.drawImage(this, 0, 0)
+											var anchor = document.createElement("a")
+											anchor.href = canvas.toDataURL("image/png")
+											anchor.download = `${url}`
+											anchor.click()
+										}
+										imageObj.src = url
+									})
+								}}
 							>
 								Save
 							</Button>
