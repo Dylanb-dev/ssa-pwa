@@ -133,7 +133,6 @@ function App() {
 		}
 		try {
 			const stream = await navigator.mediaDevices.getUserMedia(constraints)
-			console.log(stream)
 			streamRef.current = stream
 			handleSuccess(isAndroid, iso)
 		} catch (e) {
@@ -144,9 +143,9 @@ function App() {
 
 	async function handleSuccess(isAndroid = false, iso = 1000) {
 		setFramesCaptured(0)
+		imageBMP.current = []
 		console.log("handleSuccess")
 		const stream = streamRef.current
-		console.log(stream)
 		const video = document.querySelector("#video-preview")
 		video.srcObject = stream
 
@@ -358,7 +357,6 @@ function App() {
 	let imageUrls = [image1, image2]
 	class ImagePreview extends Component {
 		componentDidMount() {
-			console.log(this.props)
 			var canvas = document.getElementById(
 				`suggested-images-${this.props.index}`
 			)
@@ -381,16 +379,10 @@ function App() {
 
 		render() {
 			return (
-				<canvas
-					borderRadius="4px"
-					height="296px"
-					id={`suggested-images-${this.props.index}`}
-				/>
+				<canvas height="296px" id={`suggested-images-${this.props.index}`} />
 			)
 		}
 	}
-
-	console.log("render")
 
 	const handleSelectedImage = (e, i) => {
 		setCheckedItems({ ...checkedItems, [i]: e.target.checked })
@@ -482,8 +474,6 @@ function App() {
 			})
 	}
 
-	console.log(checkedItems)
-
 	return (
 		<div className="App">
 			<header className="App-header">
@@ -506,7 +496,6 @@ function App() {
 						<ModalBody>
 							<Stack spacing={5} id="suggestedFrames" width="100%">
 								{imageBMP.current.map((bitmap, i) => {
-									console.log("RENDER")
 									return (
 										<Flex key={`checkbox-${i}`}>
 											<Checkbox
