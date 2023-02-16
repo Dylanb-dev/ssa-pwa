@@ -1,8 +1,6 @@
 import React, { useState, useRef, useEffect } from "react"
 import logo from "./logo.jpg"
 import sound from "./ding.mp3"
-import image1 from "./test/1.png"
-import image2 from "./test/2.png"
 
 import {
 	Modal,
@@ -157,7 +155,7 @@ function App() {
 	const imageBMP = useRef([])
 	const suggestedImages = useRef([])
 
-	async function startRecording(e, isAndroid = false, iso = 400) {
+	async function startRecording(e, isAndroid = false, iso = 1000) {
 		setIsRecording(true)
 		setDebugMessage("")
 		const constraints = {
@@ -179,7 +177,7 @@ function App() {
 		}
 	}
 
-	async function handleSuccess(isAndroid = false, iso = 400) {
+	async function handleSuccess(isAndroid = false, iso = 1000) {
 		setFramesCaptured(0)
 		console.log("handleSuccess")
 		const stream = streamRef.current
@@ -302,93 +300,7 @@ function App() {
 
 		// onOpen()
 		// sleep(1000)
-		renderPhotos()
 		setIsFinished(true)
-	}
-
-	async function renderPhotos() {
-		// await new Promise((resolve, reject) => {
-		// 	setImageBMPFiltered(
-		// 		imageBMP.current.reduce(async (accumulator, { bitmap }, i) => {
-		// 			console.log(accumulator)
-		// 			console.log({ bitmap })
-		// 			if (i === 0) return accumulator
-		// 			let compare = compareImages(bitmap, imageBMP.current[i - 1].bitmap)
-		// 			if (compare.result) {
-		// 				if (i === imageBMP.current.length - 1) {
-		// 					resolve()
-		// 					return [
-		// 						...accumulator,
-		// 						{ ...imageBMP.current[i], score: compare.score },
-		// 					]
-		// 				} else {
-		// 					return [
-		// 						...accumulator,
-		// 						{ ...imageBMP.current[i], score: compare.score },
-		// 					]
-		// 				}
-		// 			} else {
-		// 				if (i === imageBMP.current.length - 1) {
-		// 					resolve()
-		// 					return accumulator
-		// 				} else {
-		// 					return accumulator
-		// 				}
-		// 			}
-		// 		}, [])
-		// 	)
-		// })
-		// console.log({ imageBMPFiltered })
-		// imageBMP.current.forEach(async ({ bitmap, last }, i) => {
-		// 	const canvas3 = document.createElement("canvas")
-		// 	canvas3.width = bitmap.width
-		// 	canvas3.height = bitmap.height
-		// 	const ctx2 = canvas3.getContext("bitmaprenderer")
-		// 	ctx2.transferFromImageBitmap(bitmap)
-		// 	const blob3 = await new Promise((res) => canvas3.toBlob(res, 'image/jpeg', 0.9))
-		// 	console.log(blob3)
-		// 	var imagesRef = ref(storageRef, `${datestring}/${i}-${last}`)
-		// 	await uploadBytes(imagesRef, blob3)
-		// })
-		// const suggestedFrames = document.getElementById("suggestedFrames")
-		// console.log({ imageBMPFiltered })
-		// console.log(`Number of frames suggested: ${imageBMPFiltered.length}`)
-		// const pinfo = document.createElement("p")
-		// pinfo.textContent = `Suggested Frames: ${imageBMPFiltered.length}/${imageBMP.current.length}`
-		// suggestedFrames.appendChild(pinfo)
-		// await new Promise((resolve, reject) =>
-		// 	imageBMPFiltered.forEach(async ({ bitmap, last, score }, i) => {
-		// 		console.log(suggestedFrames)
-		// 		const canvas2 = document.createElement("canvas")
-		// 		canvas2.width = bitmap.width
-		// 		canvas2.height = bitmap.height
-		// 		const ctx2 = canvas2.getContext("bitmaprenderer")
-		// 		ctx2.transferFromImageBitmap(bitmap)
-		// 		suggestedFrames.appendChild(canvas2)
-		// 		const p = document.createElement("p")
-		// 		p.textContent = `Difference score: ${score}`
-		// 		suggestedFrames.appendChild(p)
-		// 		if (i === imageBMPFiltered.length - 1) {
-		// 			await sleep(1000)
-		// 			resolve()
-		// 		}
-		// 	})
-		// )
-		// await new Promise((resolve, reject) =>
-		// 	imageBMP.current.forEach(async ({ bitmap, last }, i) => {
-		// 		console.log(suggestedFrames)
-		// 		const canvas2 = document.createElement("canvas")
-		// 		canvas2.width = bitmap.width
-		// 		canvas2.height = bitmap.height
-		// 		const ctx2 = canvas2.getContext("bitmaprenderer")
-		// 		ctx2.transferFromImageBitmap(bitmap)
-		// 		suggestedFrames.appendChild(canvas2)
-		// 		if (i === imageBMP.current.length - 1) {
-		// 			await sleep(1000)
-		// 			resolve()
-		// 		}
-		// 	})
-		// )
 	}
 
 	const options = Object.values(TIMER_VALUES)
@@ -401,6 +313,45 @@ function App() {
 
 	const group = getRootProps()
 	const dingSound = new Audio(sound)
+
+	function lighterImageStackTest() {
+		const imageA = new Image()
+		const imageB = new Image()
+
+		let imageABitmap
+		let imageBBitmap
+
+		// Wait for the sprite sheet to load
+		imageA.onload = async () => {
+			const bitmap = await createImageBitmap(imageA)
+			imageABitmap = bitmap
+			console.log({ bitmap })
+			if (imageABitmap && imageBBitmap) {
+				let res = compareImages(imageABitmap, imageBBitmap, true)
+				if (res.result) {
+					setDebugMessage(`Passed image comparison test ${res.score}`)
+				} else {
+					setDebugMessage("Failed image comparison test")
+				}
+			}
+		}
+		// imageA.src
+
+		imageB.onload = async () => {
+			const bitmap = await createImageBitmap(imageB)
+			imageBBitmap = bitmap
+			console.log({ bitmap })
+			if (imageABitmap && imageBBitmap) {
+				let res = compareImages(imageABitmap, imageBBitmap, true)
+				if (res) {
+					setDebugMessage("Passed image comparison test")
+				} else {
+					setDebugMessage("Failed image comparison test")
+				}
+			}
+		}
+		// imageB.src
+	}
 
 	useEffect(() => {
 		if (
@@ -460,8 +411,8 @@ function App() {
 				</Modal>
 				<Flex align="center" width="100%">
 					<img src={logo} className="App-logo" alt="logo" />
-					<Heading fontSize="6xl" colorScheme="blue">
-						SSA feb15.6
+					<Heading fontSize="4xl" colorScheme="blue">
+						SSA 216.1
 					</Heading>
 				</Flex>
 				<Text color="InfoText" fontSize="sm">
@@ -618,42 +569,6 @@ function App() {
 							variant="solid"
 							isDisabled={isRecording}
 							onClick={(e) => {
-								startRecording(e, true, 400)
-								setIsFinished(false)
-								if (selectedTimer === TIMER_VALUES.duration) {
-									setTimeout(() => {
-										dingSound.play()
-										stopStreamedVideo()
-									}, (duration + 5) * 1000)
-								}
-							}}
-						>
-							Start Recording (Android 400)
-						</Button>
-						<Button
-							mt="5px"
-							colorScheme="blue"
-							variant="solid"
-							isDisabled={isRecording}
-							onClick={(e) => {
-								startRecording(e, true, 800)
-								setIsFinished(false)
-								if (selectedTimer === TIMER_VALUES.duration) {
-									setTimeout(() => {
-										dingSound.play()
-										stopStreamedVideo()
-									}, (duration + 5) * 1000)
-								}
-							}}
-						>
-							Start Recording (Android 800)
-						</Button>
-						<Button
-							mt="5px"
-							colorScheme="blue"
-							variant="solid"
-							isDisabled={isRecording}
-							onClick={(e) => {
 								startRecording(e, true, 1600)
 								setIsFinished(false)
 								if (selectedTimer === TIMER_VALUES.duration) {
@@ -665,6 +580,42 @@ function App() {
 							}}
 						>
 							Start Recording (Android 1600)
+						</Button>
+						<Button
+							mt="5px"
+							colorScheme="blue"
+							variant="solid"
+							isDisabled={isRecording}
+							onClick={(e) => {
+								startRecording(e, true, 2400)
+								setIsFinished(false)
+								if (selectedTimer === TIMER_VALUES.duration) {
+									setTimeout(() => {
+										dingSound.play()
+										stopStreamedVideo()
+									}, (duration + 5) * 1000)
+								}
+							}}
+						>
+							Start Recording (Android 2400)
+						</Button>
+						<Button
+							mt="5px"
+							colorScheme="blue"
+							variant="solid"
+							isDisabled={isRecording}
+							onClick={(e) => {
+								startRecording(e, true, 3200)
+								setIsFinished(false)
+								if (selectedTimer === TIMER_VALUES.duration) {
+									setTimeout(() => {
+										dingSound.play()
+										stopStreamedVideo()
+									}, (duration + 5) * 1000)
+								}
+							}}
+						>
+							Start Recording (Android 3200)
 						</Button>
 						<Button
 							mt="5px"
@@ -687,6 +638,18 @@ function App() {
 						</Button>
 					</Flex>
 				)}
+				<Button
+					mt="5px"
+					colorScheme="blue"
+					variant="solid"
+					isDisabled={isRecording}
+					onClick={(e) => {
+						e.preventDefault()
+						lighterImageStackTest()
+					}}
+				>
+					Test lighter image stacking
+				</Button>
 				{framesCaptured !== null && (
 					<Text fontSize="sm">{`Photos taken: ${framesCaptured}`}</Text>
 				)}
