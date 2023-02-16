@@ -1,20 +1,27 @@
 {
   "files": {
     "main.css": "/ssa-pwa/static/css/main.fa621b42.css",
-    "main.js": "/ssa-pwa/static/js/main.27610228.js",
+    "main.js": "/ssa-pwa/static/js/main.98acf155.js",
     "static/js/787.359316be.chunk.js": "/ssa-pwa/static/js/787.359316be.chunk.js",
-    "static/media/1.png": "/ssa-pwa/static/media/1.6cf60b1f4e1a7c9e01a9.png",
+    "static/media/9.jpeg": "/ssa-pwa/static/media/9.eb39beedd6fa0e39ed44.jpeg",
+    "static/media/4.jpeg": "/ssa-pwa/static/media/4.8d4e3dc48625a8b4d17d.jpeg",
+    "static/media/3.jpeg": "/ssa-pwa/static/media/3.9c1bca9ec5a9ddff1ac9.jpeg",
+    "static/media/6.jpeg": "/ssa-pwa/static/media/6.549bb8b33ec08cc4b7d3.jpeg",
+    "static/media/1.jpeg": "/ssa-pwa/static/media/1.1e60e32ab5480b0771de.jpeg",
+    "static/media/2.jpeg": "/ssa-pwa/static/media/2.e5f31eaa0de459b0f1ca.jpeg",
+    "static/media/7.jpeg": "/ssa-pwa/static/media/7.6d7d7ef15239e1f8f7a4.jpeg",
+    "static/media/5.jpeg": "/ssa-pwa/static/media/5.206d3f4dd7ff3d297ccd.jpeg",
+    "static/media/8.jpeg": "/ssa-pwa/static/media/8.b3b946d35436575fc599.jpeg",
     "static/media/logo.jpg": "/ssa-pwa/static/media/logo.76ed0880084ca949380f.jpg",
     "service-worker.js": "/ssa-pwa/service-worker.js",
-    "static/media/2.png": "/ssa-pwa/static/media/2.4d297525ad17cea37ad7.png",
     "static/media/ding.mp3": "/ssa-pwa/static/media/ding.82573fd258e15b76f833.mp3",
     "index.html": "/ssa-pwa/index.html",
     "main.fa621b42.css.map": "/ssa-pwa/static/css/main.fa621b42.css.map",
-    "main.27610228.js.map": "/ssa-pwa/static/js/main.27610228.js.map",
+    "main.98acf155.js.map": "/ssa-pwa/static/js/main.98acf155.js.map",
     "787.359316be.chunk.js.map": "/ssa-pwa/static/js/787.359316be.chunk.js.map"
   },
   "entrypoints": [
     "static/css/main.fa621b42.css",
-    "static/js/main.27610228.js"
+    "static/js/main.98acf155.js"
   ]
 }
