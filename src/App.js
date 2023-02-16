@@ -1,6 +1,16 @@
 import React, { useState, useRef, useEffect, Component } from "react"
 import logo from "./logo.jpg"
 import sound from "./ding.mp3"
+import image1 from "./test/1.jpeg"
+import image2 from "./test/2.jpeg"
+import image3 from "./test/3.jpeg"
+import image4 from "./test/4.jpeg"
+import image5 from "./test/5.jpeg"
+import image6 from "./test/6.jpeg"
+import image7 from "./test/7.jpeg"
+import image8 from "./test/8.jpeg"
+import image9 from "./test/9.jpeg"
+import { compareImages } from "./compareImages"
 
 import {
 	Modal,
@@ -31,6 +41,17 @@ import {
 	Switch,
 } from "@chakra-ui/react"
 
+const loadImage = (url) =>
+	new Promise((resolve, reject) => {
+		const img = new Image()
+		img.addEventListener("load", () => resolve(img))
+		img.addEventListener("error", (err) => reject(err))
+		img.src = url
+	})
+
+function sleep(ms) {
+	return new Promise((resolve) => setTimeout(resolve, ms))
+}
 // 1. Create a component that consumes the `useRadio` hook
 function RadioCard(props) {
 	const { getInputProps, getCheckboxProps } = useRadio(props)
@@ -88,6 +109,8 @@ function App() {
 	const [hasCountdown, setHasCountdown] = useState(true)
 	const [debugMessage, setDebugMessage] = useState("")
 	const [framesCaptured, setFramesCaptured] = useState(null)
+	const [photosSaved, setPhotosSaved] = useState(null)
+
 	const [imageBMPFiltered, setImageBMPFiltered] = useState([])
 	const [checkedItems, setCheckedItems] = React.useState({})
 
@@ -191,36 +214,58 @@ function App() {
 		const queuingStrategy = new CountQueuingStrategy({ highWaterMark: 1 })
 
 		let canvasA = document.createElement("canvas")
-		let canvasB = document.createElement("canvas")
+		// let canvasB = document.createElement("canvas")
 
-		let canvasWorkerA = canvasA.transferControlToOffscreen()
-		let canvasWorkerB = canvasB.transferControlToOffscreen()
+		// let canvasWorkerA = canvasA.transferControlToOffscreen()
+		// let canvasWorkerB = canvasB.transferControlToOffscreen()
 
-		navigator.serviceWorker.controller.postMessage({ canvasA: canvasWorkerA }, [
-			canvasWorkerA,
-		])
+		// navigator.serviceWorker.controller.postMessage({ canvasA: canvasWorkerA }, [
+		// 	canvasWorkerA,
+		// ])
 
-		navigator.serviceWorker.controller.postMessage({ canvasB: canvasWorkerB }, [
-			canvasWorkerB,
-		])
+		// navigator.serviceWorker.controller.postMessage({ canvasB: canvasWorkerB }, [
+		// 	canvasWorkerB,
+		// ])
+
+		// navigator.serviceWorker.onmessage = (e) => {
+		// 	const message = e.data
+		// 	console.log(`[From Worker]: ${message}`)
+		// }
 
 		const writableStream = new WritableStream(
 			{
 				write: async (frame) => {
 					frameCount++
-					if (frameCount > 10 && frame.timestamp > last) {
+					if (frameCount > 5 && frame.timestamp > last) {
 						const bitmap = await createImageBitmap(frame)
 						last = frame.timestamp
-						imageBMP.current.push(bitmap)
-						navigator.serviceWorker.controller.postMessage({
-							bitmap,
-							group: datestring,
-						})
-						setFramesCaptured(frameCount - 10)
-						console.log(`${last} pushed image`)
+						if (imageBMP.current.length) {
+							const { score, result } = compareImages(
+								canvasA,
+								bitmap,
+								imageBMP.current
+									.slice(imageBMP.current.length - 1, imageBMP.current.length)
+									.pop()
+							)
+							console.log({ score })
+
+							if (score > 2000) {
+								imageBMP.current.push(bitmap)
+								console.log(`${last} pushed image`)
+							}
+						} else {
+							imageBMP.current.push(bitmap)
+							console.log(`${last} pushed image`)
+						}
+						// navigator.serviceWorker.controller.postMessage({
+						// 	bitmap,
+						// 	group: datestring,
+						// })
+						setPhotosSaved(imageBMP.current.length)
+						setFramesCaptured(frameCount - 5)
 					}
 					// browser only seems to let you have 3 frames open
-					frame.close()
+					setTimeout(() => frame.close(), 500)
 				},
 				close: () => console.log("stream closed"),
 				abort: () => console.log("stream aborted"),
@@ -228,10 +273,6 @@ function App() {
 			queuingStrategy
 		)
 		await readable.pipeTo(writableStream)
-	}
-
-	function sleep(ms) {
-		return new Promise((resolve) => setTimeout(resolve, ms))
 	}
 
 	async function stopStreamedVideo() {
@@ -246,7 +287,7 @@ function App() {
 			setIsRecording(false)
 		})
 
-		// onOpen()
+		onOpen()
 		// sleep(1000)
 		setIsFinished(true)
 	}
@@ -263,42 +304,43 @@ function App() {
 	const dingSound = new Audio(sound)
 
 	function lighterImageStackTest() {
-		const imageA = new Image()
-		const imageB = new Image()
+		const images = [
+			image1,
+			image2,
+			image3,
+			image4,
+			image5,
+			image6,
+			image7,
+			image8,
+			image9,
+		]
 
-		let imageABitmap
-		let imageBBitmap
+		const canvas = document.getElementById("debug")
 
-		// Wait for the sprite sheet to load
-		imageA.onload = async () => {
-			const bitmap = await createImageBitmap(imageA)
-			imageABitmap = bitmap
-			console.log({ bitmap })
-			if (imageABitmap && imageBBitmap) {
-				let res = compareImages(imageABitmap, imageBBitmap, true)
-				if (res.result) {
-					setDebugMessage(`Passed image comparison test ${res.score}`)
-				} else {
-					setDebugMessage("Failed image comparison test")
-				}
-			}
-		}
-		// imageA.src
+		Promise.all(images.map(loadImage))
+			.then((imgs) => Promise.all(imgs.map((a) => createImageBitmap(a))))
+			.then((x) => {
+				x.map((x) => {
+					canvas.width = 800
+					canvas.height = 1200
+					const ctx = canvas.getContext("2d")
+					ctx.globalCompositeOperation = "lighten"
+					console.log(ctx)
+					console.log(x)
+					ctx.drawImage(x, 0, 0)
+				})
+				console.log("Done")
+			})
+		// 	const imageEl = new Image()
 
-		imageB.onload = async () => {
-			const bitmap = await createImageBitmap(imageB)
-			imageBBitmap = bitmap
-			console.log({ bitmap })
-			if (imageABitmap && imageBBitmap) {
-				let res = compareImages(imageABitmap, imageBBitmap, true)
-				if (res) {
-					setDebugMessage("Passed image comparison test")
-				} else {
-					setDebugMessage("Failed image comparison test")
-				}
-			}
-		}
-		// imageB.src
+		// 	// Wait for the sprite sheet to load
+		// 	imageEl.onload = async () => {
+		// 		const bitmap = await createImageBitmap(imageEl)
+
+		// 	}
+		// 	imageEl.src = image
+		// })
 	}
 
 	useEffect(() => {
@@ -313,10 +355,6 @@ function App() {
 		}
 	}, [framesCaptured])
 
-	useEffect(() => {
-		onOpen()
-	}, [])
-
 	let imageUrls = [image1, image2]
 	class ImagePreview extends Component {
 		componentDidMount() {
@@ -325,14 +363,16 @@ function App() {
 				`suggested-images-${this.props.index}`
 			)
 			var context = canvas.getContext("2d")
-
-			// load image from data url
-			var imageObj = new Image()
-			imageObj.onload = function () {
-				context.drawImage(this, 0, 0, 350, 450)
+			if (this.props.bitmap) {
+				context.drawImage(this.props.bitmap, 0, 0, 300, 292)
 			}
-			console.log(imageObj)
-			imageObj.src = this.props.url
+			// load image from data url
+			// var imageObj = new Image()
+			// imageObj.onload = function () {
+			// 	context.drawImage(this, 0, 0, 350, 450)
+			// }
+			// console.log(imageObj)
+			// imageObj.src = this.props.url
 		}
 
 		shouldComponentUpdate(nextProps) {
@@ -341,7 +381,11 @@ function App() {
 
 		render() {
 			return (
-				<canvas height="400px" id={`suggested-images-${this.props.index}`} />
+				<canvas
+					borderRadius="4px"
+					height="296px"
+					id={`suggested-images-${this.props.index}`}
+				/>
 			)
 		}
 	}
@@ -349,7 +393,93 @@ function App() {
 	console.log("render")
 
 	const handleSelectedImage = (e, i) => {
-		setCheckedItems({ [i]: e.target.checked })
+		setCheckedItems({ ...checkedItems, [i]: e.target.checked })
+	}
+
+	function testCompareImages() {
+		const images = [
+			image1,
+			image2,
+			image3,
+			image4,
+			image5,
+			image6,
+			image7,
+			image8,
+			image9,
+		]
+
+		const canvas = document.getElementById("debug")
+
+		Promise.all(images.map(loadImage))
+			.then((imgs) => Promise.all(imgs.map((a) => createImageBitmap(a))))
+			.then((x) => {
+				// console.log("Should Pass")
+				// const { score: scoreA, result: resultA } = compareImages(
+				// 	canvas,
+				// 	x[0],
+				// 	x[1]
+				// )
+				// console.log({ scoreA, resultA })
+
+				// console.log("Should Pass")
+				// const { score: scoreB, result: resultB } = compareImages(
+				// 	canvas,
+				// 	x[1],
+				// 	x[2]
+				// )
+				// console.log({ scoreB, resultB })
+
+				console.log("Should Pass")
+				const { score: scoreC, result: resultC } = compareImages(
+					canvas,
+					x[2],
+					x[3]
+				)
+				console.log({ scoreC, resultC })
+
+				// console.log("Should Pass")
+				// const { score: scoreD, result: resultD } = compareImages(
+				// 	canvas,
+				// 	x[4],
+				// 	x[5]
+				// )
+				// console.log({ scoreD, resultD })
+
+				// console.log("Should Pass")
+				// const { score: scoreE, result: resultE } = compareImages(
+				// 	canvas,
+				// 	x[5],
+				// 	x[6]
+				// )
+				// console.log({ scoreE, resultE })
+
+				// console.log("Should Pass")
+				// const { score: scoreF, result: resultF } = compareImages(
+				// 	canvas,
+				// 	x[6],
+				// 	x[7]
+				// )
+				// console.log({ scoreF, resultF })
+
+				// console.log("Should Pass")
+				// const { score: scoreG, result: resultG } = compareImages(
+				// 	canvas,
+				// 	x[7],
+				// 	x[8]
+				// )
+				// console.log({ scoreG, resultG })
+
+				// console.log("Should Fail")
+				// const { score: scoreFail, result: resultFail } = compareImages(
+				// 	canvas,
+				// 	x[0],
+				// 	x[8]
+				// )
+				// console.log({ scoreFail, resultFail })
+
+				// console.log("Done")
+			})
 	}
 
 	console.log(checkedItems)
@@ -359,6 +489,7 @@ function App() {
 			<header className="App-header">
 				<Modal
 					isOpen={isOpen}
+					scrollBehavior="inside"
 					onClose={() => {
 						onClose()
 						var canvas = document.getElementById("download")
@@ -370,23 +501,37 @@ function App() {
 				>
 					<ModalOverlay />
 					<ModalContent>
-						<ModalHeader>Suggested Photos</ModalHeader>
+						<ModalHeader>{`Suggested Photos ${imageBMP.current.length} / ${framesCaptured}`}</ModalHeader>
 						<ModalCloseButton />
 						<ModalBody>
 							<Stack spacing={5} id="suggestedFrames" width="100%">
-								{imageUrls.map((url, i) => {
+								{imageBMP.current.map((bitmap, i) => {
 									console.log("RENDER")
 									return (
 										<Flex key={`checkbox-${i}`}>
 											<Checkbox
 												defaultChecked
 												width="100%"
-												isChecked={checkedItems[i]}
-												height="400px"
+												isChecked={checkedItems[i] === false ? false : true}
+												height="300px"
+												size="lg"
 												onChange={(e) => handleSelectedImage(e, i)}
 											>
-												<Box width="100%" height="400px">
-													<ImagePreview height="400px" url={url} index={i} />
+												<Box
+													width="100%"
+													height="300px"
+													borderRadius="4px"
+													border={
+														checkedItems[i] === false
+															? "4px solid grey"
+															: "4px solid #3182ce"
+													}
+												>
+													<ImagePreview
+														height="296px"
+														bitmap={bitmap}
+														index={i}
+													/>
 												</Box>
 											</Checkbox>
 										</Flex>
@@ -411,22 +556,28 @@ function App() {
 							</Button>
 							<Button
 								colorScheme="blue"
+								isDisabled={
+									!Object.values(checkedItems).find(
+										(x) => x === null || x === true
+									)
+								}
 								onClick={() => {
 									var canvas = document.getElementById("download")
 									var context = canvas.getContext("2d")
-									imageUrls.map((url, i) => {
-										// load image from data url
-										var imageObj = new Image()
-										imageObj.onload = function () {
-											canvas.width = this.width
-											canvas.height = this.height
-											context.drawImage(this, 0, 0)
+									console.log(imageBMP.current)
+									imageBMP.current.map((bmp, i) => {
+										if (checkedItems[i] === null || checkedItems[i] === true) {
+											console.log(bmp)
+											canvas.width = bmp.width
+											canvas.height = bmp.height
+											context.drawImage(bmp, 0, 0)
 											var anchor = document.createElement("a")
-											anchor.href = canvas.toDataURL("image/png")
-											anchor.download = `${url}`
+											anchor.href = canvas.toDataURL("image/jpeg")
+											anchor.download = `${new Date()
+												.toString()
+												.replaceAll(" ", "_")}.jpg`
 											anchor.click()
 										}
-										imageObj.src = url
 									})
 								}}
 							>
@@ -660,7 +811,7 @@ function App() {
 								}
 							}}
 						>
-							Start Recording (iPhone)
+							Start Recording (TEST)
 						</Button>
 					</Flex>
 				)}
@@ -671,13 +822,17 @@ function App() {
 					isDisabled={isRecording}
 					onClick={(e) => {
 						e.preventDefault()
-						lighterImageStackTest()
+						// lighterImageStackTest()
+						testCompareImages()
 					}}
 				>
-					Test lighter image stacking
+					Test compare Images
 				</Button>
 				{framesCaptured !== null && (
 					<Text fontSize="sm">{`Photos taken: ${framesCaptured}`}</Text>
+				)}
+				{photosSaved !== null && (
+					<Text fontSize="sm">{`Photos saved: ${photosSaved}`}</Text>
 				)}
 				{isFinished && (
 					<Text
@@ -685,8 +840,9 @@ function App() {
 						colorScheme="red"
 					>{`Finished Recording Successfully`}</Text>
 				)}
-				<canvas id="worker"></canvas>
-				<canvas id="download"></canvas>
+				<canvas id="worker" height="0px"></canvas>
+				<canvas id="download" height="0px"></canvas>
+				<canvas id="debug" height="800px" width="600px"></canvas>
 				<Flex direction="column" id="capturedFrames" w="480px"></Flex>
 			</header>
 		</div>
