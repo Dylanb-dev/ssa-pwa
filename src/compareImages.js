@@ -8,7 +8,6 @@
  */
 export function compareImages(canvas, imageBitmapA, imageBitmapB) {
 	console.log("COMPARE IMAGES")
-	console.log({ imageBitmapA, imageBitmapB })
 	let width
 	let height
 	if (
@@ -38,7 +37,6 @@ export function compareImages(canvas, imageBitmapA, imageBitmapB) {
 	// Noise threshold
 	var PIXEL_SCORE_THRESHOLD = 12
 	var imageScore = 0
-	console.log(diff)
 	// Difference threshold, kinda useless
 	for (var i = 0; i < diff.data.length; i += 4) {
 		var r = diff.data[i] / 3

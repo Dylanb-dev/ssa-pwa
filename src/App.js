@@ -546,17 +546,17 @@ function App() {
 							<Button
 								colorScheme="blue"
 								isDisabled={
-									!Object.values(checkedItems).find(
-										(x) => x === null || x === true
+									imageBMP.current.length === 0 ||
+									!imageBMP.current.find(
+										(_, i) =>
+											checkedItems[i] === undefined || checkedItems[i] === true
 									)
 								}
 								onClick={() => {
 									var canvas = document.getElementById("download")
 									var context = canvas.getContext("2d")
-									console.log(imageBMP.current)
 									imageBMP.current.map((bmp, i) => {
 										if (checkedItems[i] === null || checkedItems[i] === true) {
-											console.log(bmp)
 											canvas.width = bmp.width
 											canvas.height = bmp.height
 											context.drawImage(bmp, 0, 0)
@@ -578,7 +578,7 @@ function App() {
 				<Flex align="center" width="100%">
 					<img src={logo} className="App-logo" alt="logo" />
 					<Heading fontSize="4xl" colorScheme="blue">
-						SSA 216.2
+						SSA 216.3
 					</Heading>
 				</Flex>
 				<Text color="InfoText" fontSize="sm">
@@ -790,7 +790,7 @@ function App() {
 							variant="solid"
 							isDisabled={isRecording}
 							onClick={(e) => {
-								startRecording(e, false)
+								startRecording(e, false, 100)
 								setIsFinished(false)
 								if (selectedTimer === TIMER_VALUES.duration) {
 									setTimeout(() => {
@@ -800,11 +800,11 @@ function App() {
 								}
 							}}
 						>
-							Start Recording (TEST)
+							Start Recording (TEST 100)
 						</Button>
 					</Flex>
 				)}
-				<Button
+				{/* <Button
 					mt="5px"
 					colorScheme="blue"
 					variant="solid"
@@ -816,7 +816,7 @@ function App() {
 					}}
 				>
 					Test compare Images
-				</Button>
+				</Button> */}
 				{framesCaptured !== null && (
 					<Text fontSize="sm">{`Photos taken: ${framesCaptured}`}</Text>
 				)}
