@@ -47,15 +47,6 @@ export function compareImages(canvas, imageBitmapA, imageBitmapB) {
 			imageScore++
 		}
 	}
-	// for (var i = 0; i < diff.data.length; i += 4) {
-	// 	var r = diff.data[i] / 3
-	// 	var g = diff.data[i + 1] / 3
-	// 	var b = diff.data[i + 2] / 3
-	// 	var pixelScore = r + g + b
-	// 	if (pixelScore >= PIXEL_SCORE_THRESHOLD) {
-	// 		imageScore++
-	// 	}
-	// }
 
 	if (imageScore > 1000 && imageScore < 200000) {
 		return { result: true, score: imageScore }

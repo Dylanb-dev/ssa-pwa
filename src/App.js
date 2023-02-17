@@ -10,6 +10,10 @@ import image6 from "./test/6.jpeg"
 import image7 from "./test/7.jpeg"
 import image8 from "./test/8.jpeg"
 import image9 from "./test/9.jpeg"
+
+import algoRef from "./test/algoRef.jpeg"
+import algoRefLine from "./test/algoRefLine.jpeg"
+
 import { compareImages } from "./compareImages"
 
 import {
@@ -474,6 +478,82 @@ function App() {
 			})
 	}
 
+	async function testLineAlgorithm() {
+		const startAlgo = Date.now()
+		const imageA = await loadImage(image1)
+		// const imageB = await loadImage(image7)
+
+		const canvas = document.getElementById("debug")
+		const ctx = canvas.getContext("2d", {
+			willReadFrequently: true,
+		})
+		canvas.width = imageA.width
+		canvas.height = imageA.height
+
+		// ctx.globalCompositeOperation = "difference"
+		ctx.drawImage(imageA, 0, 0)
+		// ctx.drawImage(imageB, 0, 0)
+		let imageData = ctx.getImageData(0, 0, imageA.width, imageA.height)
+
+		// Noise threshold
+		var PIXEL_SCORE_THRESHOLD = 32
+		var myDataTransformed = []
+		const pointsPerRow = 4 * imageA.width
+		let count = 0
+		let rowData = []
+		// Difference threshold, kinda useless
+		for (var i = 0; i < imageData.data.length; i += 4) {
+			var r = imageData.data[i] / 3
+			var g = imageData.data[i + 1] / 3
+			var b = imageData.data[i + 2] / 3
+			var pixelScore = r + g + b
+			count++
+			const row = Math.floor(i / pointsPerRow)
+			if (i > 0 && i % pointsPerRow === 0) {
+				myDataTransformed.push(rowData)
+				rowData = []
+			}
+			if (pixelScore >= PIXEL_SCORE_THRESHOLD) {
+				rowData.push(1)
+			} else {
+				rowData.push(0)
+			}
+		}
+		console.log({ count })
+		let longest = longestLine(myDataTransformed)
+		const endAlgo = Date.now()
+		console.log({ longest, time: endAlgo - startAlgo })
+	}
+
+	const longestLine = (arr = []) => {
+		if (!arr.length) {
+			return 0
+		}
+		let rows = arr.length,
+			cols = arr[0].length
+		let res = 0
+		const dp = Array(rows).fill([])
+		dp.forEach((el, ind) => {
+			dp[ind] = Array(cols).fill([])
+			dp[ind].forEach((undefined, subInd) => {
+				dp[ind][subInd] = Array(4).fill(null)
+			})
+		})
+		for (let i = 0; i < rows; i++) {
+			for (let j = 0; j < cols; j++) {
+				if (arr[i][j] == 1) {
+					dp[i][j][0] = j > 0 ? dp[i][j - 1][0] + 1 : 1
+					dp[i][j][1] = i > 0 ? dp[i - 1][j][1] + 1 : 1
+					dp[i][j][2] = i > 0 && j > 0 ? dp[i - 1][j - 1][2] + 1 : 1
+					dp[i][j][3] = i > 0 && j < cols - 1 ? dp[i - 1][j + 1][3] + 1 : 1
+					res = Math.max(res, Math.max(dp[i][j][0], dp[i][j][1]))
+					res = Math.max(res, Math.max(dp[i][j][2], dp[i][j][3]))
+				}
+			}
+		}
+		return res
+	}
+
 	return (
 		<div className="App">
 			<header className="App-header">
@@ -801,6 +881,19 @@ function App() {
 							}}
 						>
 							Start Recording (TEST 100)
+						</Button>
+						<Button
+							mt="5px"
+							ml="5px"
+							colorScheme="blue"
+							variant="solid"
+							isDisabled={isRecording}
+							onClick={(e) => {
+								e.preventDefault()
+								testLineAlgorithm()
+							}}
+						>
+							Test line Detection
 						</Button>
 					</Flex>
 				)}
