@@ -15,6 +15,7 @@ import { precacheAndRoute, createHandlerBoundToURL } from "workbox-precaching"
 import { registerRoute } from "workbox-routing"
 import { StaleWhileRevalidate } from "workbox-strategies"
 import XML from "xhr-shim"
+import { compareImages } from "./compareImages"
 
 global["XMLHttpRequest"] = XML
 
@@ -94,35 +95,45 @@ self.addEventListener("message", (event) => {
 	}
 })
 
-// Any other custom service worker logic can go here.
+let canvasA = null
 
+// Any other custom service worker logic can go here.
 let canvasB = null
 let group = null
 let bitmap = null
 // Waiting to receive the OffScreenCanvas
 self.addEventListener("message", (event) => {
-	const datestring = new Date().toString()
-	if (event.data.canvas) {
-		canvasB = event.data.canvas
+	if (event.data.canvasA) {
+		canvasA = event.data.canvasA
+	} else if (event.data.canvasB) {
+		canvasB = event.data.canvasB
 	} else {
-		bitmap = event.data.bitmap
-		group = event.data.group
-		let count = 0
-		const canvas = canvasB
-		canvas.width = bitmap.width
-		canvas.height = bitmap.height
-		const ctx = canvas.getContext("bitmaprenderer")
-		ctx.transferFromImageBitmap(bitmap)
-		console.log(canvas)
+		const datestring = new Date().toString()
+		if (bitmap !== null) {
+			const { result, score } = compareImages(event.data.bitmap, bitmap)
+			bitmap = event.data.bitmap
+			if (result) {
+				console.log("detected a positive diff, uploading image")
+				let count = 0
+				const canvas = canvasB
+				canvas.width = bitmap.width
+				canvas.height = bitmap.height
+				const ctx = canvas.getContext("bitmaprenderer")
+				ctx.transferFromImageBitmap(bitmap)
 
-		canvas
-			.convertToBlob({ type: "image/jpeg", quality: 0.99 })
-			.then(async (res) => {
-				console.log(res)
-				count = count + 1
-				var imagesRef = ref(storageRef, `${group}/${datestring}`)
-				await uploadBytes(imagesRef, res)
-				console.log(`uploaded to firebase ${group}/${datestring}`)
-			})
+				canvas
+					.convertToBlob({ type: "image/jpeg", quality: 0.99 })
+					.then(async (res) => {
+						console.log(res)
+						count = count + 1
+						var imagesRef = ref(storageRef, `${group}/${datestring}`)
+						await uploadBytes(imagesRef, res)
+						console.log(`uploaded to firebase ${group}/${datestring}`)
+					})
+			}
+		} else {
+			bitmap = event.data.bitmap
+			group = event.data.group
+		}
 	}
 })
