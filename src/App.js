@@ -263,13 +263,10 @@ function App() {
 						const ctx = canvasA.getContext("2d", { willReadFrequently: true })
 						const bitmap = await createImageBitmap(frame)
 						ctx.globalCompositeOperation = "difference"
-						ctx.drawImage(bitmap, 0, 0)
-						const imageData = ctx.getImageData(
-							0,
-							0,
-							bitmap.width,
-							bitmap.height
-						)
+						let width = bitmap.width / 3
+						let height = bitmap.height / 3
+						ctx.drawImage(bitmap, 0, 0, width, height)
+						const imageData = ctx.getImageData(0, 0, width, height)
 						if (frameCount > 7) {
 							const { longestObject: t } = lineAlgorithm(imageData)
 							longestObject = t
@@ -764,7 +761,7 @@ function App() {
 									var canvas = document.getElementById("download")
 									var context = canvas.getContext("2d")
 									imageBMP.current.map(({ bitmap, time }, i) => {
-										if (!checkedItems[i] || checkedItems[i] === true) {
+										if (checkedItems[i] == null || checkedItems[i] === true) {
 											canvas.width = bitmap.width
 											canvas.height = bitmap.height
 											context.drawImage(bitmap, 0, 0)
@@ -981,6 +978,24 @@ function App() {
 							}}
 						>
 							Start Recording (Android 2400)
+						</Button>
+						<Button
+							mt="5px"
+							colorScheme="blue"
+							variant="solid"
+							isDisabled={isRecording}
+							onClick={(e) => {
+								startRecording(e, true, 1600)
+								setIsFinished(false)
+								if (selectedTimer === TIMER_VALUES.duration) {
+									setTimeout(() => {
+										dingSound.play()
+										stopStreamedVideo()
+									}, (duration + 5) * 1000)
+								}
+							}}
+						>
+							Start Recording (Android 1600)
 						</Button>
 						{/* <Button
 							mt="5px"
