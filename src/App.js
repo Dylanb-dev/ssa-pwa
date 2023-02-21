@@ -18,6 +18,9 @@ import algoRef from "./test/algoRef.jpeg"
 import algoRefLine from "./test/algoRefLine.jpeg"
 
 import { compareImages } from "./compareImages"
+import { format } from "date-fns"
+
+import piexif from "./piexifjs"
 
 import {
 	Modal,
@@ -118,7 +121,6 @@ function App() {
 	const [framesCaptured, setFramesCaptured] = useState(null)
 	const [photosSaved, setPhotosSaved] = useState(null)
 
-	const [imageBMPFiltered, setImageBMPFiltered] = useState([])
 	const [checkedItems, setCheckedItems] = React.useState({})
 
 	const { isOpen, onOpen, onClose } = useDisclosure()
@@ -252,11 +254,15 @@ function App() {
 		const writableStream = new WritableStream(
 			{
 				write: async (frame) => {
+					let startAlgo = Date.now()
 					frameCount++
+					let prevBitmap
+					let longestObject
+
 					if (frameCount > 5 && frame.timestamp > last) {
-						const ctx = canvasA.getContext("2d")
-						console.log(frame)
+						const ctx = canvasA.getContext("2d", { willReadFrequently: true })
 						const bitmap = await createImageBitmap(frame)
+						ctx.globalCompositeOperation = "difference"
 						ctx.drawImage(bitmap, 0, 0)
 						const imageData = ctx.getImageData(
 							0,
@@ -264,24 +270,21 @@ function App() {
 							bitmap.width,
 							bitmap.height
 						)
-						console.log({ imageData })
-						lineAlgorithm(imageData)
+						if (frameCount > 7) {
+							const { longestObject: t } = lineAlgorithm(imageData)
+							longestObject = t
+							last = frame.timestamp
+							console.log(longestObject)
+							if (longestObject.size > 10) {
+								imageBMP.current.push({
+									bitmap,
+									time: new Date(),
+									longestObject,
+								})
+								console.log(`${last} pushed image`)
+							}
+						}
 
-						last = frame.timestamp
-						// if (imageBMP.current.length) {
-						// 	const { score, result } = compareImages(
-						// 		canvasA,
-						// 		bitmap,
-						// 		imageBMP.current
-						// 			.slice(imageBMP.current.length - 1, imageBMP.current.length)
-						// 			.pop()
-						// 	)
-						// 	console.log({ score })
-
-						// 	if (score > 2000) {
-						// 		imageBMP.current.push(bitmap)
-						// 		console.log(`${last} pushed image`)
-						// 	}
 						// } else {
 						// 	imageBMP.current.push(bitmap)
 						// 	console.log(`${last} pushed image`)
@@ -293,6 +296,7 @@ function App() {
 						setPhotosSaved(imageBMP.current.length)
 						setFramesCaptured(frameCount - 5)
 					}
+					console.log(`Time taken: ${Date.now() - startAlgo}`)
 					// browser only seems to let you have 3 frames open
 					setTimeout(() => frame.close(), 500)
 				},
@@ -391,8 +395,20 @@ function App() {
 				`suggested-images-${this.props.index}`
 			)
 			var context = canvas.getContext("2d")
-			if (this.props.bitmap) {
-				context.drawImage(this.props.bitmap, 0, 0, 300, 292)
+			const { longestObject, bitmap } = this.props
+			console.log({ longestObject, bitmap })
+			if (bitmap && longestObject) {
+				context.drawImage(
+					bitmap,
+					Math.max(0, longestObject.jstart - 100),
+					Math.max(0, longestObject.istart - 100),
+					300,
+					292,
+					0,
+					0,
+					300,
+					292
+				)
 			}
 			// load image from data url
 			// var imageObj = new Image()
@@ -644,7 +660,7 @@ function App() {
 
 		// ctx.putImageData(imgData, 0, 0);
 
-		return longestObject
+		return { longestObject }
 	}
 
 	async function testLineAlgorithm() {
@@ -686,7 +702,7 @@ function App() {
 						<ModalCloseButton />
 						<ModalBody>
 							<Stack spacing={5} id="suggestedFrames" width="100%">
-								{imageBMP.current.map((bitmap, i) => {
+								{imageBMP.current.map(({ bitmap, longestObject }, i) => {
 									return (
 										<Flex key={`checkbox-${i}`}>
 											<Checkbox
@@ -710,6 +726,7 @@ function App() {
 													<ImagePreview
 														height="296px"
 														bitmap={bitmap}
+														longestObject={longestObject}
 														index={i}
 													/>
 												</Box>
@@ -746,13 +763,40 @@ function App() {
 								onClick={() => {
 									var canvas = document.getElementById("download")
 									var context = canvas.getContext("2d")
-									imageBMP.current.map((bmp, i) => {
-										if (checkedItems[i] === null || checkedItems[i] === true) {
-											canvas.width = bmp.width
-											canvas.height = bmp.height
-											context.drawImage(bmp, 0, 0)
+									imageBMP.current.map(({ bitmap, time }, i) => {
+										if (!checkedItems[i] || checkedItems[i] === true) {
+											canvas.width = bitmap.width
+											canvas.height = bitmap.height
+											context.drawImage(bitmap, 0, 0)
 											var anchor = document.createElement("a")
-											anchor.href = canvas.toDataURL("image/jpeg")
+											const jpegData = canvas.toDataURL("image/jpeg")
+
+											var zeroth = {}
+											var exif = {}
+											var gps = {}
+											console.log(new Date())
+											exif[piexif.ExifIFD.DateTimeOriginal] = format(
+												new Date(time),
+												"yyyy:MM:dd HH:mm:SS"
+											)
+											exif[piexif.ExifIFD.ExposureTime] = 4
+											exif[36880] = "+08:00"
+											var lat = -32.05
+											var lng = 115.9
+											gps[piexif.GPSIFD.GPSLatitudeRef] = lat < 0 ? "S" : "N"
+											gps[piexif.GPSIFD.GPSLatitude] =
+												piexif.GPSHelper.degToDmsRational(lat)
+											gps[piexif.GPSIFD.GPSLongitudeRef] = lng < 0 ? "W" : "E"
+											gps[piexif.GPSIFD.GPSLongitude] =
+												piexif.GPSHelper.degToDmsRational(lng)
+											var exifObj = { "0th": zeroth, Exif: exif, GPS: gps }
+											var exifbytes = piexif.dump(exifObj)
+
+											var newJpeg = piexif.insert(exifbytes, jpegData)
+											console.log(exifObj)
+											console.log(exifbytes)
+											console.log(newJpeg)
+											anchor.href = newJpeg
 											anchor.download = `${new Date()
 												.toString()
 												.replaceAll(" ", "_")}.jpg`
@@ -769,7 +813,7 @@ function App() {
 				<Flex align="center" width="100%">
 					<img src={logo} className="App-logo" alt="logo" />
 					<Heading fontSize="4xl" colorScheme="blue">
-						SSA 216.3
+						SSA 221.1
 					</Heading>
 				</Flex>
 				<Text color="InfoText" fontSize="sm">
@@ -926,7 +970,7 @@ function App() {
 							variant="solid"
 							isDisabled={isRecording}
 							onClick={(e) => {
-								startRecording(e, true, 1600)
+								startRecording(e, true, 2400)
 								setIsFinished(false)
 								if (selectedTimer === TIMER_VALUES.duration) {
 									setTimeout(() => {
@@ -936,28 +980,9 @@ function App() {
 								}
 							}}
 						>
-							Start Recording (Android 1600)
+							Start Recording (Android 2400)
 						</Button>
-						<Button
-							mt="5px"
-							ml="5px"
-							colorScheme="blue"
-							variant="solid"
-							isDisabled={isRecording}
-							onClick={(e) => {
-								startRecording(e, false, 100)
-								setIsFinished(false)
-								if (selectedTimer === TIMER_VALUES.duration) {
-									setTimeout(() => {
-										dingSound.play()
-										stopStreamedVideo()
-									}, (duration + 5) * 1000)
-								}
-							}}
-						>
-							Test Recording
-						</Button>
-						<Button
+						{/* <Button
 							mt="5px"
 							ml="5px"
 							colorScheme="blue"
@@ -969,10 +994,10 @@ function App() {
 							}}
 						>
 							Test line Detection
-						</Button>
+						</Button> */}
 					</Flex>
 				)}
-				<Button
+				{/* <Button
 					mt="5px"
 					colorScheme="blue"
 					variant="solid"
@@ -984,7 +1009,7 @@ function App() {
 					}}
 				>
 					Test compare Images
-				</Button>
+				</Button> */}
 				{framesCaptured !== null && (
 					<Text fontSize="sm">{`Photos taken: ${framesCaptured}`}</Text>
 				)}
