@@ -271,7 +271,6 @@ function App() {
 							const { longestObject: t } = lineAlgorithm(imageData)
 							longestObject = t
 							last = frame.timestamp
-							console.log(longestObject)
 							if (longestObject.size > 10) {
 								imageBMP.current.push({
 									bitmap,
@@ -295,7 +294,8 @@ function App() {
 					}
 					console.log(`Time taken: ${Date.now() - startAlgo}`)
 					// browser only seems to let you have 3 frames open
-					setTimeout(() => frame.close(), 500)
+					frame.close()
+					// setTimeout(() => frame.close(), 500)
 				},
 				close: () => console.log("stream closed"),
 				abort: () => console.log("stream aborted"),
@@ -996,6 +996,24 @@ function App() {
 							}}
 						>
 							Start Recording (Android 1600)
+						</Button>
+						<Button
+							mt="5px"
+							colorScheme="blue"
+							variant="solid"
+							isDisabled={isRecording}
+							onClick={(e) => {
+								startRecording(e, true, 100)
+								setIsFinished(false)
+								if (selectedTimer === TIMER_VALUES.duration) {
+									setTimeout(() => {
+										dingSound.play()
+										stopStreamedVideo()
+									}, (duration + 5) * 1000)
+								}
+							}}
+						>
+							Start Recording (Android 100)
 						</Button>
 						{/* <Button
 							mt="5px"
