@@ -10,6 +10,9 @@ import image6 from "./test/6.jpeg"
 import image7 from "./test/7.jpeg"
 import image8 from "./test/8.jpeg"
 import image9 from "./test/9.jpeg"
+import test3 from "./test/test3.png"
+
+import line2 from "./test/line2.png"
 
 import algoRef from "./test/algoRef.jpeg"
 import algoRefLine from "./test/algoRefLine.jpeg"
@@ -124,7 +127,14 @@ function App() {
 	const imageBMP = useRef([])
 	const suggestedImages = useRef([])
 
-	async function startRecording(e, isAndroid = false, iso = 1000) {
+	let dp = [[]]
+
+	async function startRecording(
+		e,
+		isAndroid = false,
+		iso = 1000,
+		test = false
+	) {
 		setIsRecording(true)
 		setDebugMessage("")
 		const constraints = {
@@ -138,15 +148,16 @@ function App() {
 		try {
 			const stream = await navigator.mediaDevices.getUserMedia(constraints)
 			streamRef.current = stream
-			handleSuccess(isAndroid, iso)
+			handleSuccess(isAndroid, iso, test)
 		} catch (e) {
 			setIsRecording(false)
 			console.error(e)
 		}
 	}
 
-	async function handleSuccess(isAndroid = false, iso = 1000) {
+	async function handleSuccess(isAndroid = false, iso = 1000, test = false) {
 		setFramesCaptured(0)
+
 		imageBMP.current = []
 		console.log("handleSuccess")
 		const stream = streamRef.current
@@ -158,10 +169,20 @@ function App() {
 
 		const capabilities = track.getCapabilities()
 		const settings = track.getSettings()
+
+		dp = Array(settings.height).fill([])
+		dp.forEach((el, ind) => {
+			dp[ind] = Array(settings.width).fill([])
+			dp[ind].forEach((undefined, subInd) => {
+				dp[ind][subInd] = Array(4).fill(null)
+			})
+		})
+
 		console.log("Capabilities: ", capabilities)
 		console.log("Settings: ", settings)
 		// Basic settings for all camera
 		if (
+			!test &&
 			isAndroid &&
 			capabilities.focusMode &&
 			capabilities.focusDistance &&
@@ -195,7 +216,7 @@ function App() {
 			await track.applyConstraints({
 				advanced: [
 					{
-						frameRate: Math.max(3, capabilities.frameRate.min),
+						frameRate: Math.max(1, capabilities.frameRate.min),
 					},
 				],
 			})
@@ -217,17 +238,10 @@ function App() {
 		const queuingStrategy = new CountQueuingStrategy({ highWaterMark: 1 })
 
 		let canvasA = document.createElement("canvas")
-		// let canvasB = document.createElement("canvas")
-
 		// let canvasWorkerA = canvasA.transferControlToOffscreen()
-		// let canvasWorkerB = canvasB.transferControlToOffscreen()
 
 		// navigator.serviceWorker.controller.postMessage({ canvasA: canvasWorkerA }, [
 		// 	canvasWorkerA,
-		// ])
-
-		// navigator.serviceWorker.controller.postMessage({ canvasB: canvasWorkerB }, [
-		// 	canvasWorkerB,
 		// ])
 
 		// navigator.serviceWorker.onmessage = (e) => {
@@ -240,26 +254,38 @@ function App() {
 				write: async (frame) => {
 					frameCount++
 					if (frameCount > 5 && frame.timestamp > last) {
+						const ctx = canvasA.getContext("2d")
+						console.log(frame)
 						const bitmap = await createImageBitmap(frame)
-						last = frame.timestamp
-						if (imageBMP.current.length) {
-							const { score, result } = compareImages(
-								canvasA,
-								bitmap,
-								imageBMP.current
-									.slice(imageBMP.current.length - 1, imageBMP.current.length)
-									.pop()
-							)
-							console.log({ score })
+						ctx.drawImage(bitmap, 0, 0)
+						const imageData = ctx.getImageData(
+							0,
+							0,
+							bitmap.width,
+							bitmap.height
+						)
+						console.log({ imageData })
+						lineAlgorithm(imageData)
 
-							if (score > 2000) {
-								imageBMP.current.push(bitmap)
-								console.log(`${last} pushed image`)
-							}
-						} else {
-							imageBMP.current.push(bitmap)
-							console.log(`${last} pushed image`)
-						}
+						last = frame.timestamp
+						// if (imageBMP.current.length) {
+						// 	const { score, result } = compareImages(
+						// 		canvasA,
+						// 		bitmap,
+						// 		imageBMP.current
+						// 			.slice(imageBMP.current.length - 1, imageBMP.current.length)
+						// 			.pop()
+						// 	)
+						// 	console.log({ score })
+
+						// 	if (score > 2000) {
+						// 		imageBMP.current.push(bitmap)
+						// 		console.log(`${last} pushed image`)
+						// 	}
+						// } else {
+						// 	imageBMP.current.push(bitmap)
+						// 	console.log(`${last} pushed image`)
+						// }
 						// navigator.serviceWorker.controller.postMessage({
 						// 	bitmap,
 						// 	group: datestring,
@@ -403,155 +429,245 @@ function App() {
 			image7,
 			image8,
 			image9,
+			test3,
 		]
 
 		const canvas = document.getElementById("debug")
+		const ctx = canvas.getContext("2d", { willReadFrequently: true })
+
 
 		Promise.all(images.map(loadImage))
 			.then((imgs) => Promise.all(imgs.map((a) => createImageBitmap(a))))
 			.then((x) => {
-				// console.log("Should Pass")
-				// const { score: scoreA, result: resultA } = compareImages(
-				// 	canvas,
-				// 	x[0],
-				// 	x[1]
-				// )
-				// console.log({ scoreA, resultA })
+				const startAlgo = Date.now()
+				let imageData
 
-				// console.log("Should Pass")
-				// const { score: scoreB, result: resultB } = compareImages(
-				// 	canvas,
-				// 	x[1],
-				// 	x[2]
-				// )
-				// console.log({ scoreB, resultB })
+				let width = Math.floor(x[0].width / 3)
+				let height = Math.floor(x[0].height / 3)
+
+				canvas.width = width
+				canvas.height = height
 
 				console.log("Should Pass")
-				const { score: scoreC, result: resultC } = compareImages(
-					canvas,
-					x[2],
-					x[3]
-				)
-				console.log({ scoreC, resultC })
+				ctx.drawImage(x[1], 0, 0, width, height)
+				imageData = ctx.getImageData(0, 0, width, height)
+				console.log(lineAlgorithm(imageData))
 
 				// console.log("Should Pass")
-				// const { score: scoreD, result: resultD } = compareImages(
-				// 	canvas,
-				// 	x[4],
-				// 	x[5]
-				// )
-				// console.log({ scoreD, resultD })
+				// ctx.drawImage(x[2], 0, 0, width, height)
+				// imageData = ctx.getImageData(0, 0, width, height)
+				// console.log(lineAlgorithm(imageData))
 
 				// console.log("Should Pass")
-				// const { score: scoreE, result: resultE } = compareImages(
-				// 	canvas,
-				// 	x[5],
-				// 	x[6]
-				// )
-				// console.log({ scoreE, resultE })
+				// ctx.drawImage(x[3], 0, 0, width, height)
+				// imageData = ctx.getImageData(0, 0, width, height)
+				// console.log(lineAlgorithm(imageData))
 
 				// console.log("Should Pass")
-				// const { score: scoreF, result: resultF } = compareImages(
-				// 	canvas,
-				// 	x[6],
-				// 	x[7]
-				// )
-				// console.log({ scoreF, resultF })
+				// ctx.drawImage(x[4], 0, 0, width, height)
+				// imageData = ctx.getImageData(0, 0, width, height)
+				// console.log(lineAlgorithm(imageData))
 
 				// console.log("Should Pass")
-				// const { score: scoreG, result: resultG } = compareImages(
-				// 	canvas,
-				// 	x[7],
-				// 	x[8]
-				// )
-				// console.log({ scoreG, resultG })
+				// ctx.drawImage(x[5], 0, 0, width, height)
+				// imageData = ctx.getImageData(0, 0, width, height)
+				// console.log(lineAlgorithm(imageData))
 
 				// console.log("Should Fail")
-				// const { score: scoreFail, result: resultFail } = compareImages(
-				// 	canvas,
-				// 	x[0],
-				// 	x[8]
-				// )
-				// console.log({ scoreFail, resultFail })
+				// ctx.drawImage(x[8], 0, 0, width, height)
+				// imageData = ctx.getImageData(0, 0, width, height)
+				// console.log(lineAlgorithm(imageData))
 
 				// console.log("Done")
+				const endAlgo = Date.now()
+				console.log({ time: endAlgo - startAlgo })
 			})
 	}
 
-	async function testLineAlgorithm() {
-		const startAlgo = Date.now()
-		const imageA = await loadImage(image1)
-		// const imageB = await loadImage(image7)
+	// function checkPixel(imagePix) {
+	// 	var PIXEL_SCORE_THRESHOLD = 36
 
+	// 	let k = (i * cols + j) * 4
+	// 			let r = imageData.data[k] / 3
+	// 			let g = imageData.data[k + 1] / 3
+	// 			let b = imageData.data[k + 2] / 3
+	// 			let pixelScore = r + g + b
+	// 			return pixelScore >= PIXEL_SCORE_THRESHOLD
+
+	// }
+
+	function lineAlgorithm(imageData) {
+		// Noise threshold
+		var PIXEL_SCORE_THRESHOLD = 48
+		let rows = imageData.height
+		let cols = imageData.width
+		let res = 0
+		let arr
+
+		const startAlgo = Date.now()
+
+		let dp = Array(rows).fill({})
+		let objects = {}
+		let objectCount = 1 
+		let longestObject = {
+			istart: 0,
+			iend: 0,
+			jstart: 0,
+			jend: 0,
+			size: 0
+		}
+
+		// const c = document.getElementById("debug2");
+		// const ctx = c.getContext("2d");
+		// const imgData = ctx.createImageData(imageData.width, imageData.height);
+		// c.width = imageData.width
+		// c.height = imageData.height
+	
+		function getSize(obj) {
+			return Math.sqrt((obj.istart - obj.iend)**2 + (obj.jstart - obj.jend) ** 2)
+		}
+	
+
+		for (let i = 0; i < rows; i++) {
+			for (let j = 0; j < cols; j++) {
+				
+				let k = (i * cols + j) * 4
+				let r = imageData.data[k] / 3
+				let g = imageData.data[k + 1] / 3
+				let b = imageData.data[k + 2] / 3
+				let pixelScore = r + g + b
+
+				if (pixelScore >= PIXEL_SCORE_THRESHOLD) {
+					// imgData.data[k] = 255;
+					// imgData.data[k+1] = 0;
+					// imgData.data[k+2] = 0;
+					// imgData.data[k+3] = 255;
+
+					let left
+					let topLeft
+					let top
+					let topRight
+					// [0, 1, 0],
+					// [0, 1, 0],
+	
+					// Add point to existing objects, or create if does not exist
+					if(j > 0 && dp[i][j -1]) {
+						// console.log("LEFT")
+						left = dp[i][j -1]
+						dp[i] =  {...dp[i], [j]: left}
+						dp[i] =  {...dp[i], [j-1]: left}
+
+						left.istart = Math.min(i, left.istart)
+						left.iend = Math.max(i, left.iend)
+						left.jstart = Math.min(j, left.jstart)
+						left.jend = Math.max(j, left.jend)
+						left.size = getSize(left)
+						// Update longest Object i,j coordinates and size
+						if(left.size > longestObject.size) {
+							longestObject = left
+						}
+					}
+	
+					if (i>0 && j > 0 && dp[i-1][j -1]) {
+						// console.log('TOP LEFT')
+						topLeft = dp[i-1][j -1]
+						dp[i] = {...dp[i], [j]: topLeft}
+						dp[i] =  {...dp[i], [j-1]: topLeft}
+
+						topLeft.istart = Math.min(i, topLeft.istart)
+						topLeft.iend = Math.max(i, topLeft.iend)
+						topLeft.jstart = Math.min(j, topLeft.jstart)
+						topLeft.jend = Math.max(j, topLeft.jend)
+						topLeft.size = getSize(topLeft)
+	
+						// Update longest Object i,j coordinates and size
+						if(topLeft.size > longestObject.size) {
+							longestObject = topLeft
+						}
+					}
+	
+					if (i>0 && dp[i-1][j]) {
+						top = dp[i-1][j]
+						dp[i] =  {...dp[i], [j]: top}
+						dp[i] =  {...dp[i], [j-1]: top}
+
+						top.istart = Math.min(i, top.istart)
+						top.iend = Math.max(i, top.iend)
+						top.jstart = Math.min(j, top.jstart)
+						top.jend = Math.max(j, top.jend)
+						top.size = getSize(top)
+	
+						// Update longest Object i,j coordinates and size
+						if(top.size > longestObject.size) {
+							longestObject = top
+						}
+					}
+	
+					if (i>0 && j < cols -1 && dp[i-1][j+1]) {
+						// console.log("TOP RIGHT")
+						topRight = dp[i-1][j+1]
+						dp[i] = {...dp[i], [j]: topRight}
+						dp[i] = {...dp[i], [j-1]: topRight}
+
+						topRight.istart = Math.min(i, topRight.istart)
+						topRight.iend = Math.max(i, topRight.iend)
+						topRight.jstart = Math.min(j, topRight.jstart)
+						topRight.jend = Math.max(j, topRight.jend)
+
+						topRight.size = getSize(topRight)						
+	
+						// Update longest Object i,j coordinates and size
+						if(topRight.size > longestObject.size) {
+							longestObject = topRight
+						}
+					}
+					if(!left && !top && !topLeft && !topRight) {
+						// console.log("NEW OBJECT")
+						const newObject = {
+							istart: i,
+							iend: i,
+							jstart: j,
+							jend: j,
+							size: 1
+						}	
+							dp[i] = {...dp[i], [j]: newObject}
+							objects = {...objects, [objectCount]:  newObject}
+							objectCount++
+						}
+
+					}
+				
+			}
+		}
+		// console.log({objects})
+		// console.log({objectCount})
+
+		// console.log({longestObject})
+		// console.log(JSON.parse(JSON.stringify(dp)))
+
+
+		// ctx.putImageData(imgData, 0, 0); 
+
+		return longestObject
+	}
+
+	async function testLineAlgorithm() {
+		const imageA = await loadImage(line2)
+		console.log("LINE IS ~52px")
 		const canvas = document.getElementById("debug")
 		const ctx = canvas.getContext("2d", {
 			willReadFrequently: true,
 		})
-		canvas.width = imageA.width
-		canvas.height = imageA.height
+		let width = imageA.width
+		let height = imageA.height 
+		canvas.width = width
+		canvas.height = height
 
-		// ctx.globalCompositeOperation = "difference"
-		ctx.drawImage(imageA, 0, 0)
-		// ctx.drawImage(imageB, 0, 0)
-		let imageData = ctx.getImageData(0, 0, imageA.width, imageA.height)
 
-		// Noise threshold
-		var PIXEL_SCORE_THRESHOLD = 32
-		var myDataTransformed = []
-		const pointsPerRow = 4 * imageA.width
-		let count = 0
-		let rowData = []
-		// Difference threshold, kinda useless
-		for (var i = 0; i < imageData.data.length; i += 4) {
-			var r = imageData.data[i] / 3
-			var g = imageData.data[i + 1] / 3
-			var b = imageData.data[i + 2] / 3
-			var pixelScore = r + g + b
-			count++
-			const row = Math.floor(i / pointsPerRow)
-			if (i > 0 && i % pointsPerRow === 0) {
-				myDataTransformed.push(rowData)
-				rowData = []
-			}
-			if (pixelScore >= PIXEL_SCORE_THRESHOLD) {
-				rowData.push(1)
-			} else {
-				rowData.push(0)
-			}
-		}
-		console.log({ count })
-		let longest = longestLine(myDataTransformed)
-		const endAlgo = Date.now()
-		console.log({ longest, time: endAlgo - startAlgo })
-	}
-
-	const longestLine = (arr = []) => {
-		if (!arr.length) {
-			return 0
-		}
-		let rows = arr.length,
-			cols = arr[0].length
-		let res = 0
-		const dp = Array(rows).fill([])
-		dp.forEach((el, ind) => {
-			dp[ind] = Array(cols).fill([])
-			dp[ind].forEach((undefined, subInd) => {
-				dp[ind][subInd] = Array(4).fill(null)
-			})
-		})
-		for (let i = 0; i < rows; i++) {
-			for (let j = 0; j < cols; j++) {
-				if (arr[i][j] == 1) {
-					dp[i][j][0] = j > 0 ? dp[i][j - 1][0] + 1 : 1
-					dp[i][j][1] = i > 0 ? dp[i - 1][j][1] + 1 : 1
-					dp[i][j][2] = i > 0 && j > 0 ? dp[i - 1][j - 1][2] + 1 : 1
-					dp[i][j][3] = i > 0 && j < cols - 1 ? dp[i - 1][j + 1][3] + 1 : 1
-					res = Math.max(res, Math.max(dp[i][j][0], dp[i][j][1]))
-					res = Math.max(res, Math.max(dp[i][j][2], dp[i][j][3]))
-				}
-			}
-		}
-		return res
+		let imageData
+		ctx.drawImage(imageA, 0, 0, width,height)
+		imageData = ctx.getImageData(0, 0, width, height)
+		console.log(lineAlgorithm(imageData))
 	}
 
 	return (
@@ -829,42 +945,6 @@ function App() {
 						</Button>
 						<Button
 							mt="5px"
-							colorScheme="blue"
-							variant="solid"
-							isDisabled={isRecording}
-							onClick={(e) => {
-								startRecording(e, true, 2400)
-								setIsFinished(false)
-								if (selectedTimer === TIMER_VALUES.duration) {
-									setTimeout(() => {
-										dingSound.play()
-										stopStreamedVideo()
-									}, (duration + 5) * 1000)
-								}
-							}}
-						>
-							Start Recording (Android 2400)
-						</Button>
-						<Button
-							mt="5px"
-							colorScheme="blue"
-							variant="solid"
-							isDisabled={isRecording}
-							onClick={(e) => {
-								startRecording(e, true, 3200)
-								setIsFinished(false)
-								if (selectedTimer === TIMER_VALUES.duration) {
-									setTimeout(() => {
-										dingSound.play()
-										stopStreamedVideo()
-									}, (duration + 5) * 1000)
-								}
-							}}
-						>
-							Start Recording (Android 3200)
-						</Button>
-						<Button
-							mt="5px"
 							ml="5px"
 							colorScheme="blue"
 							variant="solid"
@@ -880,7 +960,7 @@ function App() {
 								}
 							}}
 						>
-							Start Recording (TEST 100)
+							Test Recording
 						</Button>
 						<Button
 							mt="5px"
@@ -897,7 +977,7 @@ function App() {
 						</Button>
 					</Flex>
 				)}
-				{/* <Button
+				<Button
 					mt="5px"
 					colorScheme="blue"
 					variant="solid"
@@ -909,7 +989,7 @@ function App() {
 					}}
 				>
 					Test compare Images
-				</Button> */}
+				</Button>
 				{framesCaptured !== null && (
 					<Text fontSize="sm">{`Photos taken: ${framesCaptured}`}</Text>
 				)}
@@ -925,6 +1005,9 @@ function App() {
 				<canvas id="worker" height="0px"></canvas>
 				<canvas id="download" height="0px"></canvas>
 				<canvas id="debug" height="800px" width="600px"></canvas>
+				<Flex justify="center" id="capturedFrames" w="100%">
+				<canvas id="debug2" height="800px" width="600px"></canvas>
+				</Flex>
 				<Flex direction="column" id="capturedFrames" w="480px"></Flex>
 			</header>
 		</div>

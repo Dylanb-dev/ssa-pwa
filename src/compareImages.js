@@ -35,7 +35,7 @@ export function compareImages(canvas, imageBitmapA, imageBitmapB) {
 	let diff = ctx.getImageData(0, 0, width, height)
 
 	// Noise threshold
-	var PIXEL_SCORE_THRESHOLD = 12
+	var PIXEL_SCORE_THRESHOLD = 60
 	var imageScore = 0
 	// Difference threshold, kinda useless
 	for (var i = 0; i < diff.data.length; i += 4) {
