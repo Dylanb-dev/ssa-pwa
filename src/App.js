@@ -435,7 +435,6 @@ function App() {
 		const canvas = document.getElementById("debug")
 		const ctx = canvas.getContext("2d", { willReadFrequently: true })
 
-
 		Promise.all(images.map(loadImage))
 			.then((imgs) => Promise.all(imgs.map((a) => createImageBitmap(a))))
 			.then((x) => {
@@ -508,13 +507,13 @@ function App() {
 
 		let dp = Array(rows).fill({})
 		let objects = {}
-		let objectCount = 1 
+		let objectCount = 1
 		let longestObject = {
 			istart: 0,
 			iend: 0,
 			jstart: 0,
 			jend: 0,
-			size: 0
+			size: 0,
 		}
 
 		// const c = document.getElementById("debug2");
@@ -522,15 +521,15 @@ function App() {
 		// const imgData = ctx.createImageData(imageData.width, imageData.height);
 		// c.width = imageData.width
 		// c.height = imageData.height
-	
+
 		function getSize(obj) {
-			return Math.sqrt((obj.istart - obj.iend)**2 + (obj.jstart - obj.jend) ** 2)
+			return Math.sqrt(
+				(obj.istart - obj.iend) ** 2 + (obj.jstart - obj.jend) ** 2
+			)
 		}
-	
 
 		for (let i = 0; i < rows; i++) {
 			for (let j = 0; j < cols; j++) {
-				
 				let k = (i * cols + j) * 4
 				let r = imageData.data[k] / 3
 				let g = imageData.data[k + 1] / 3
@@ -549,13 +548,13 @@ function App() {
 					let topRight
 					// [0, 1, 0],
 					// [0, 1, 0],
-	
+
 					// Add point to existing objects, or create if does not exist
-					if(j > 0 && dp[i][j -1]) {
+					if (j > 0 && dp[i][j - 1]) {
 						// console.log("LEFT")
-						left = dp[i][j -1]
-						dp[i] =  {...dp[i], [j]: left}
-						dp[i] =  {...dp[i], [j-1]: left}
+						left = dp[i][j - 1]
+						dp[i] = { ...dp[i], [j]: left }
+						dp[i] = { ...dp[i], [j - 1]: left }
 
 						left.istart = Math.min(i, left.istart)
 						left.iend = Math.max(i, left.iend)
@@ -563,80 +562,78 @@ function App() {
 						left.jend = Math.max(j, left.jend)
 						left.size = getSize(left)
 						// Update longest Object i,j coordinates and size
-						if(left.size > longestObject.size) {
+						if (left.size > longestObject.size) {
 							longestObject = left
 						}
 					}
-	
-					if (i>0 && j > 0 && dp[i-1][j -1]) {
+
+					if (i > 0 && j > 0 && dp[i - 1][j - 1]) {
 						// console.log('TOP LEFT')
-						topLeft = dp[i-1][j -1]
-						dp[i] = {...dp[i], [j]: topLeft}
-						dp[i] =  {...dp[i], [j-1]: topLeft}
+						topLeft = dp[i - 1][j - 1]
+						dp[i] = { ...dp[i], [j]: topLeft }
+						dp[i] = { ...dp[i], [j - 1]: topLeft }
 
 						topLeft.istart = Math.min(i, topLeft.istart)
 						topLeft.iend = Math.max(i, topLeft.iend)
 						topLeft.jstart = Math.min(j, topLeft.jstart)
 						topLeft.jend = Math.max(j, topLeft.jend)
 						topLeft.size = getSize(topLeft)
-	
+
 						// Update longest Object i,j coordinates and size
-						if(topLeft.size > longestObject.size) {
+						if (topLeft.size > longestObject.size) {
 							longestObject = topLeft
 						}
 					}
-	
-					if (i>0 && dp[i-1][j]) {
-						top = dp[i-1][j]
-						dp[i] =  {...dp[i], [j]: top}
-						dp[i] =  {...dp[i], [j-1]: top}
+
+					if (i > 0 && dp[i - 1][j]) {
+						top = dp[i - 1][j]
+						dp[i] = { ...dp[i], [j]: top }
+						dp[i] = { ...dp[i], [j - 1]: top }
 
 						top.istart = Math.min(i, top.istart)
 						top.iend = Math.max(i, top.iend)
 						top.jstart = Math.min(j, top.jstart)
 						top.jend = Math.max(j, top.jend)
 						top.size = getSize(top)
-	
+
 						// Update longest Object i,j coordinates and size
-						if(top.size > longestObject.size) {
+						if (top.size > longestObject.size) {
 							longestObject = top
 						}
 					}
-	
-					if (i>0 && j < cols -1 && dp[i-1][j+1]) {
+
+					if (i > 0 && j < cols - 1 && dp[i - 1][j + 1]) {
 						// console.log("TOP RIGHT")
-						topRight = dp[i-1][j+1]
-						dp[i] = {...dp[i], [j]: topRight}
-						dp[i] = {...dp[i], [j-1]: topRight}
+						topRight = dp[i - 1][j + 1]
+						dp[i] = { ...dp[i], [j]: topRight }
+						dp[i] = { ...dp[i], [j - 1]: topRight }
 
 						topRight.istart = Math.min(i, topRight.istart)
 						topRight.iend = Math.max(i, topRight.iend)
 						topRight.jstart = Math.min(j, topRight.jstart)
 						topRight.jend = Math.max(j, topRight.jend)
 
-						topRight.size = getSize(topRight)						
-	
+						topRight.size = getSize(topRight)
+
 						// Update longest Object i,j coordinates and size
-						if(topRight.size > longestObject.size) {
+						if (topRight.size > longestObject.size) {
 							longestObject = topRight
 						}
 					}
-					if(!left && !top && !topLeft && !topRight) {
+					if (!left && !top && !topLeft && !topRight) {
 						// console.log("NEW OBJECT")
 						const newObject = {
 							istart: i,
 							iend: i,
 							jstart: j,
 							jend: j,
-							size: 1
-						}	
-							dp[i] = {...dp[i], [j]: newObject}
-							objects = {...objects, [objectCount]:  newObject}
-							objectCount++
+							size: 1,
 						}
-
+						dp[i] = { ...dp[i], [j]: newObject }
+						objects = { ...objects, [objectCount]: newObject }
+						objectCount++
 					}
-				
+				}
 			}
 		}
 		// console.log({objects})
@@ -645,8 +642,7 @@ function App() {
 		// console.log({longestObject})
 		// console.log(JSON.parse(JSON.stringify(dp)))
 
-
-		// ctx.putImageData(imgData, 0, 0); 
+		// ctx.putImageData(imgData, 0, 0);
 
 		return longestObject
 	}
@@ -659,13 +655,12 @@ function App() {
 			willReadFrequently: true,
 		})
 		let width = imageA.width
-		let height = imageA.height 
+		let height = imageA.height
 		canvas.width = width
 		canvas.height = height
 
-
 		let imageData
-		ctx.drawImage(imageA, 0, 0, width,height)
+		ctx.drawImage(imageA, 0, 0, width, height)
 		imageData = ctx.getImageData(0, 0, width, height)
 		console.log(lineAlgorithm(imageData))
 	}
@@ -1006,7 +1001,7 @@ function App() {
 				<canvas id="download" height="0px"></canvas>
 				<canvas id="debug" height="800px" width="600px"></canvas>
 				<Flex justify="center" id="capturedFrames" w="100%">
-				<canvas id="debug2" height="800px" width="600px"></canvas>
+					<canvas id="debug2" height="800px" width="600px"></canvas>
 				</Flex>
 				<Flex direction="column" id="capturedFrames" w="480px"></Flex>
 			</header>
