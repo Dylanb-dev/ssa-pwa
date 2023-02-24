@@ -11,7 +11,7 @@ import image7 from "./test/7.jpeg"
 import image8 from "./test/8.jpeg"
 import image9 from "./test/9.jpeg"
 import test3 from "./test/test3.png"
-
+import noise from "./test/noise.jpeg"
 import line2 from "./test/line2.png"
 
 import algoRef from "./test/algoRef.jpeg"
@@ -50,6 +50,27 @@ import {
 	FormLabel,
 	Switch,
 } from "@chakra-ui/react"
+import { getStorage, ref, uploadBytes } from "firebase/storage"
+import { initializeApp } from "firebase/app"
+
+const firebaseConfig = {
+	apiKey: "AIzaSyBYAQRyqjZ-vjXT1FikWjmVNDpHe4tiyJs",
+
+	authDomain: "space-exposure-d0379.firebaseapp.com",
+
+	projectId: "space-exposure-d0379",
+
+	storageBucket: "space-exposure-d0379.appspot.com",
+
+	messagingSenderId: "963000608298",
+
+	appId: "1:963000608298:web:985c5a76757cdd41f9c553",
+}
+
+// Initialize Firebase
+initializeApp(firebaseConfig)
+
+const storageRef = getStorage()
 
 const loadImage = (url) =>
 	new Promise((resolve, reject) => {
@@ -98,6 +119,163 @@ function RadioCard(props) {
 	)
 }
 
+function lineAlgorithm(imageData) {
+	// Noise threshold
+	var PIXEL_SCORE_THRESHOLD = 48
+	let rows = imageData.height
+	let cols = imageData.width
+	let res = 0
+	let arr
+
+	let dp = Array(rows).fill({})
+	let objects = {}
+	let objectCount = 1
+	let longestObject = {
+		istart: 0,
+		iend: 0,
+		jstart: 0,
+		jend: 0,
+		size: 0,
+	}
+
+	// const c = document.getElementById("debug2");
+	// const ctx = c.getContext("2d");
+	// const imgData = ctx.createImageData(imageData.width, imageData.height);
+	// c.width = imageData.width
+	// c.height = imageData.height
+
+	function getSize(obj) {
+		return Math.sqrt(
+			(obj.istart - obj.iend) ** 2 + (obj.jstart - obj.jend) ** 2
+		)
+	}
+	let count = 0
+
+	for (let i = 0; i < rows; i++) {
+		if (count > 1000) {
+			return { longestObject }
+		}
+		for (let j = 0; j < cols; j++) {
+			if (count > 1000) {
+				return { longestObject }
+			}
+			let k = (i * cols + j) * 4
+			let r = imageData.data[k] / 3
+			let g = imageData.data[k + 1] / 3
+			let b = imageData.data[k + 2] / 3
+			let pixelScore = r + g + b
+
+			if (pixelScore >= PIXEL_SCORE_THRESHOLD) {
+				// imgData.data[k] = 255;
+				// imgData.data[k+1] = 0;
+				// imgData.data[k+2] = 0;
+				// imgData.data[k+3] = 255;
+				count++
+				let left
+				let topLeft
+				let top
+				let topRight
+				// [0, 1, 0],
+				// [0, 1, 0],
+
+				// Add point to existing objects, or create if does not exist
+				if (j > 0 && dp[i][j - 1]) {
+					// console.log("LEFT")
+					left = dp[i][j - 1]
+					dp[i] = { ...dp[i], [j]: left }
+					dp[i] = { ...dp[i], [j - 1]: left }
+
+					left.istart = Math.min(i, left.istart)
+					left.iend = Math.max(i, left.iend)
+					left.jstart = Math.min(j, left.jstart)
+					left.jend = Math.max(j, left.jend)
+					left.size = getSize(left)
+					// Update longest Object i,j coordinates and size
+					if (left.size > longestObject.size) {
+						longestObject = left
+					}
+				}
+
+				if (i > 0 && j > 0 && dp[i - 1][j - 1]) {
+					// console.log('TOP LEFT')
+					topLeft = dp[i - 1][j - 1]
+					dp[i] = { ...dp[i], [j]: topLeft }
+					dp[i] = { ...dp[i], [j - 1]: topLeft }
+
+					topLeft.istart = Math.min(i, topLeft.istart)
+					topLeft.iend = Math.max(i, topLeft.iend)
+					topLeft.jstart = Math.min(j, topLeft.jstart)
+					topLeft.jend = Math.max(j, topLeft.jend)
+					topLeft.size = getSize(topLeft)
+
+					// Update longest Object i,j coordinates and size
+					if (topLeft.size > longestObject.size) {
+						longestObject = topLeft
+					}
+				}
+
+				if (i > 0 && dp[i - 1][j]) {
+					top = dp[i - 1][j]
+					dp[i] = { ...dp[i], [j]: top }
+					dp[i] = { ...dp[i], [j - 1]: top }
+
+					top.istart = Math.min(i, top.istart)
+					top.iend = Math.max(i, top.iend)
+					top.jstart = Math.min(j, top.jstart)
+					top.jend = Math.max(j, top.jend)
+					top.size = getSize(top)
+
+					// Update longest Object i,j coordinates and size
+					if (top.size > longestObject.size) {
+						longestObject = top
+					}
+				}
+
+				if (i > 0 && j < cols - 1 && dp[i - 1][j + 1]) {
+					// console.log("TOP RIGHT")
+					topRight = dp[i - 1][j + 1]
+					dp[i] = { ...dp[i], [j]: topRight }
+					dp[i] = { ...dp[i], [j - 1]: topRight }
+
+					topRight.istart = Math.min(i, topRight.istart)
+					topRight.iend = Math.max(i, topRight.iend)
+					topRight.jstart = Math.min(j, topRight.jstart)
+					topRight.jend = Math.max(j, topRight.jend)
+
+					topRight.size = getSize(topRight)
+
+					// Update longest Object i,j coordinates and size
+					if (topRight.size > longestObject.size) {
+						longestObject = topRight
+					}
+				}
+				if (!left && !top && !topLeft && !topRight) {
+					// console.log("NEW OBJECT")
+					const newObject = {
+						istart: i,
+						iend: i,
+						jstart: j,
+						jend: j,
+						size: 1,
+					}
+					dp[i] = { ...dp[i], [j]: newObject }
+					objects = { ...objects, [objectCount]: newObject }
+					objectCount++
+				}
+			}
+		}
+	}
+	// console.log({objects})
+	// console.log({objectCount})
+
+	// console.log({longestObject})
+	// console.log(JSON.parse(JSON.stringify(dp)))
+
+	// ctx.putImageData(imgData, 0, 0);
+	console.log({ count })
+	return { longestObject }
+}
+
 function App() {
 	const VIEW_WIDTH = Math.max(
 		document.documentElement.clientWidth || 0,
@@ -127,9 +305,27 @@ function App() {
 
 	const streamRef = useRef()
 	const imageBMP = useRef([])
-	const suggestedImages = useRef([])
 
-	let dp = [[]]
+	// useEffect(() => {
+	// 	if ("serviceWorker" in navigator) {
+	// 		navigator.serviceWorker.ready.then((registration) => {
+	// 			console.log(`A service worker is active: ${registration.active}`)
+
+	// 			navigator.serviceWorker.addEventListener("message", (event) => {
+	// 				console.log("RECIEVED MESSAGE FROM WORKER")
+	// 				const { date, longestObject, bitmap, msg } = event.data
+	// 				console.log({ date, longestObject, bitmap, msg })
+	// 				imageBMP.current.push({
+	// 					date,
+	// 					longestObject,
+	// 					bitmap,
+	// 				})
+	// 			})
+	// 		})
+	// 	} else {
+	// 		console.error("Service workers are not supported.")
+	// 	}
+	// }, [])
 
 	async function startRecording(
 		e,
@@ -172,14 +368,6 @@ function App() {
 		const capabilities = track.getCapabilities()
 		const settings = track.getSettings()
 
-		dp = Array(settings.height).fill([])
-		dp.forEach((el, ind) => {
-			dp[ind] = Array(settings.width).fill([])
-			dp[ind].forEach((undefined, subInd) => {
-				dp[ind][subInd] = Array(4).fill(null)
-			})
-		})
-
 		console.log("Capabilities: ", capabilities)
 		console.log("Settings: ", settings)
 		// Basic settings for all camera
@@ -210,11 +398,18 @@ function App() {
 						exposureTime: Math.min(10000, capabilities.exposureTime.max),
 						zoom: capabilities.zoom.min,
 						focusDistance: capabilities.focusDistance.max,
-						iso,
+						iso: Math.min(iso, capabilities.iso.max),
 					},
 				],
 			})
 		} else if (capabilities.frameRate) {
+			await track.applyConstraints({
+				advanced: [
+					{
+						exposureTime: 10000,
+					},
+				],
+			})
 			await track.applyConstraints({
 				advanced: [
 					{
@@ -236,63 +431,124 @@ function App() {
 		// vars to control our read loop
 		let last = 0
 		let frameCount = 0
-		const datestring = new Date().toString()
+		let group = new Date().toString()
 		const queuingStrategy = new CountQueuingStrategy({ highWaterMark: 1 })
 
-		let canvasA = document.createElement("canvas")
-		// let canvasWorkerA = canvasA.transferControlToOffscreen()
+		// let canvasA = document.getElementById("debug")
+		let canvasA = new OffscreenCanvas(100, 1)
+		let canvasB = new OffscreenCanvas(100, 1)
 
+		const ctx = canvasA.getContext("2d", { willReadFrequently: true })
+		// let canvasWorkerA = canvasA.transferControlToOffscreen()
 		// navigator.serviceWorker.controller.postMessage({ canvasA: canvasWorkerA }, [
 		// 	canvasWorkerA,
 		// ])
-
-		// navigator.serviceWorker.onmessage = (e) => {
-		// 	const message = e.data
-		// 	console.log(`[From Worker]: ${message}`)
-		// }
+		let bitmapLastvisible
 
 		const writableStream = new WritableStream(
 			{
 				write: async (frame) => {
 					let startAlgo = Date.now()
 					frameCount++
-					let prevBitmap
-					let longestObject
-
-					if (frameCount > 5 && frame.timestamp > last) {
-						const ctx = canvasA.getContext("2d", { willReadFrequently: true })
+					console.log(frameCount)
+					if (frameCount === 6) {
 						const bitmap = await createImageBitmap(frame)
-						ctx.globalCompositeOperation = "difference"
 						let width = bitmap.width / 3
 						let height = bitmap.height / 3
-						ctx.drawImage(bitmap, 0, 0, width, height)
-						const imageData = ctx.getImageData(0, 0, width, height)
-						if (frameCount > 7) {
-							const { longestObject: t } = lineAlgorithm(imageData)
-							longestObject = t
-							last = frame.timestamp
-							if (longestObject.size > 10) {
-								imageBMP.current.push({
-									bitmap,
-									time: new Date(),
-									longestObject,
-								})
-								console.log(`${last} pushed image`)
+						canvasA.width = width
+						canvasA.height = height
+						ctx.globalCompositeOperation = "difference"
+					}
+					if (frameCount > 2 && frame.timestamp > last) {
+						if (frameCount > 6) {
+							const bitmap = await createImageBitmap(frame)
+							let width = bitmap.width / 3
+							let height = bitmap.height / 3
+							if (!bitmapLastvisible) {
+								bitmapLastvisible = bitmap
+								ctx.drawImage(bitmapLastvisible, 0, 0, width, height)
+							} else {
+								console.log("drawing against ref")
+								ctx.clearRect(0, 0, width, height)
+
+								ctx.drawImage(bitmapLastvisible, 0, 0, width, height)
+								ctx.drawImage(bitmap, 0, 0, width, height)
+							}
+							console.log(ctx.globalCompositeOperation)
+
+							const imageData = ctx.getImageData(0, 0, width, height)
+							if (frameCount > 7) {
+								const { longestObject } = lineAlgorithm(imageData)
+								// if (longestObject.size > 5) {
+								// 	bitmapLastvisible = bitmap
+								// }
+								if (longestObject.size > 10 && longestObject.size < 500) {
+									console.log("OBJECT FOUND, PUSHING BMP")
+									imageBMP.current.push({
+										bitmap,
+										date: new Date(),
+										longestObject,
+									})
+									canvasB.width = bitmap.width
+									canvasB.height = bitmap.height
+									const ctxB = canvasB.getContext("2d")
+									ctxB.drawImage(bitmap, 0, 0, bitmap.width, bitmap.height)
+
+									canvasB
+										.convertToBlob({ type: "image/jpeg", quality: 0.95 })
+										.then(async (res) => {
+											var imagesRef = ref(
+												storageRef,
+												`${group}/${new Date().toString()}`
+											)
+											await uploadBytes(imagesRef, res)
+											console.log(
+												`uploaded to firebase ${group}/${new Date().toString()}`
+											)
+										})
+								}
 							}
 						}
-
-						// } else {
-						// 	imageBMP.current.push(bitmap)
+						// last = frame.timestamp
+						// if (longestObject.size > 10) {
+						// 	imageBMP.current.push({
+						// 		bitmap,
+						// 		time: new Date(),
+						// 		longestObject,
+						// 	})
 						// 	console.log(`${last} pushed image`)
 						// }
-						// navigator.serviceWorker.controller.postMessage({
-						// 	bitmap,
-						// 	group: datestring,
+						// imageBMP.current.push({
+						// 	bitmap: bitmap,
+						// 	date: new Date(),
+						// 	longestObject: {
+						// 		istart: 0,
+						// 		iend: 0,
+						// 		jstart: 0,
+						// 		jend: 0,
+						// 		size: 0,
+						// 	},
 						// })
+						// navigator.serviceWorker.controller.postMessage(
+						// 	{ bitmap, group },
+						// 	[bitmap]
+						// )
+
+						// }
+
+						// 	// } else {
+						// 	// 	imageBMP.current.push(bitmap)
+						// 	// 	console.log(`${last} pushed image`)
+						// 	// }
+						// 	// navigator.serviceWorker.controller.postMessage({
+						// 	// 	bitmap,
+						// 	// 	group: datestring,
+						// 	// })
+
 						setPhotosSaved(imageBMP.current.length)
-						setFramesCaptured(frameCount - 5)
+						setFramesCaptured(frameCount - 7)
 					}
-					console.log(`Time taken: ${Date.now() - startAlgo}`)
+					// console.log(`Time taken: ${Date.now() - startAlgo}`)
 					// browser only seems to let you have 3 frames open
 					frame.close()
 					// setTimeout(() => frame.close(), 500)
@@ -314,11 +570,10 @@ function App() {
 
 		videoTracks.forEach((track) => {
 			track.stop()
-			setIsRecording(false)
 		})
-
+		setIsRecording(false)
 		onOpen()
-		// sleep(1000)
+		sleep(1000)
 		setIsFinished(true)
 	}
 
@@ -475,7 +730,7 @@ function App() {
 				// imageData = ctx.getImageData(0, 0, width, height)
 				// console.log(lineAlgorithm(imageData))
 
-				// console.log("Should Pass")
+				// console.log("Should Pass")post
 				// ctx.drawImage(x[4], 0, 0, width, height)
 				// imageData = ctx.getImageData(0, 0, width, height)
 				// console.log(lineAlgorithm(imageData))
@@ -496,179 +751,17 @@ function App() {
 			})
 	}
 
-	// function checkPixel(imagePix) {
-	// 	var PIXEL_SCORE_THRESHOLD = 36
-
-	// 	let k = (i * cols + j) * 4
-	// 			let r = imageData.data[k] / 3
-	// 			let g = imageData.data[k + 1] / 3
-	// 			let b = imageData.data[k + 2] / 3
-	// 			let pixelScore = r + g + b
-	// 			return pixelScore >= PIXEL_SCORE_THRESHOLD
-
-	// }
-
-	function lineAlgorithm(imageData) {
-		// Noise threshold
-		var PIXEL_SCORE_THRESHOLD = 48
-		let rows = imageData.height
-		let cols = imageData.width
-		let res = 0
-		let arr
-
-		const startAlgo = Date.now()
-
-		let dp = Array(rows).fill({})
-		let objects = {}
-		let objectCount = 1
-		let longestObject = {
-			istart: 0,
-			iend: 0,
-			jstart: 0,
-			jend: 0,
-			size: 0,
-		}
-
-		// const c = document.getElementById("debug2");
-		// const ctx = c.getContext("2d");
-		// const imgData = ctx.createImageData(imageData.width, imageData.height);
-		// c.width = imageData.width
-		// c.height = imageData.height
-
-		function getSize(obj) {
-			return Math.sqrt(
-				(obj.istart - obj.iend) ** 2 + (obj.jstart - obj.jend) ** 2
-			)
-		}
-
-		for (let i = 0; i < rows; i++) {
-			for (let j = 0; j < cols; j++) {
-				let k = (i * cols + j) * 4
-				let r = imageData.data[k] / 3
-				let g = imageData.data[k + 1] / 3
-				let b = imageData.data[k + 2] / 3
-				let pixelScore = r + g + b
-
-				if (pixelScore >= PIXEL_SCORE_THRESHOLD) {
-					// imgData.data[k] = 255;
-					// imgData.data[k+1] = 0;
-					// imgData.data[k+2] = 0;
-					// imgData.data[k+3] = 255;
-
-					let left
-					let topLeft
-					let top
-					let topRight
-					// [0, 1, 0],
-					// [0, 1, 0],
-
-					// Add point to existing objects, or create if does not exist
-					if (j > 0 && dp[i][j - 1]) {
-						// console.log("LEFT")
-						left = dp[i][j - 1]
-						dp[i] = { ...dp[i], [j]: left }
-						dp[i] = { ...dp[i], [j - 1]: left }
-
-						left.istart = Math.min(i, left.istart)
-						left.iend = Math.max(i, left.iend)
-						left.jstart = Math.min(j, left.jstart)
-						left.jend = Math.max(j, left.jend)
-						left.size = getSize(left)
-						// Update longest Object i,j coordinates and size
-						if (left.size > longestObject.size) {
-							longestObject = left
-						}
-					}
-
-					if (i > 0 && j > 0 && dp[i - 1][j - 1]) {
-						// console.log('TOP LEFT')
-						topLeft = dp[i - 1][j - 1]
-						dp[i] = { ...dp[i], [j]: topLeft }
-						dp[i] = { ...dp[i], [j - 1]: topLeft }
-
-						topLeft.istart = Math.min(i, topLeft.istart)
-						topLeft.iend = Math.max(i, topLeft.iend)
-						topLeft.jstart = Math.min(j, topLeft.jstart)
-						topLeft.jend = Math.max(j, topLeft.jend)
-						topLeft.size = getSize(topLeft)
-
-						// Update longest Object i,j coordinates and size
-						if (topLeft.size > longestObject.size) {
-							longestObject = topLeft
-						}
-					}
-
-					if (i > 0 && dp[i - 1][j]) {
-						top = dp[i - 1][j]
-						dp[i] = { ...dp[i], [j]: top }
-						dp[i] = { ...dp[i], [j - 1]: top }
-
-						top.istart = Math.min(i, top.istart)
-						top.iend = Math.max(i, top.iend)
-						top.jstart = Math.min(j, top.jstart)
-						top.jend = Math.max(j, top.jend)
-						top.size = getSize(top)
-
-						// Update longest Object i,j coordinates and size
-						if (top.size > longestObject.size) {
-							longestObject = top
-						}
-					}
-
-					if (i > 0 && j < cols - 1 && dp[i - 1][j + 1]) {
-						// console.log("TOP RIGHT")
-						topRight = dp[i - 1][j + 1]
-						dp[i] = { ...dp[i], [j]: topRight }
-						dp[i] = { ...dp[i], [j - 1]: topRight }
-
-						topRight.istart = Math.min(i, topRight.istart)
-						topRight.iend = Math.max(i, topRight.iend)
-						topRight.jstart = Math.min(j, topRight.jstart)
-						topRight.jend = Math.max(j, topRight.jend)
-
-						topRight.size = getSize(topRight)
-
-						// Update longest Object i,j coordinates and size
-						if (topRight.size > longestObject.size) {
-							longestObject = topRight
-						}
-					}
-					if (!left && !top && !topLeft && !topRight) {
-						// console.log("NEW OBJECT")
-						const newObject = {
-							istart: i,
-							iend: i,
-							jstart: j,
-							jend: j,
-							size: 1,
-						}
-						dp[i] = { ...dp[i], [j]: newObject }
-						objects = { ...objects, [objectCount]: newObject }
-						objectCount++
-					}
-				}
-			}
-		}
-		// console.log({objects})
-		// console.log({objectCount})
-
-		// console.log({longestObject})
-		// console.log(JSON.parse(JSON.stringify(dp)))
-
-		// ctx.putImageData(imgData, 0, 0);
-
-		return { longestObject }
-	}
-
 	async function testLineAlgorithm() {
-		const imageA = await loadImage(line2)
+		const startAlgo = Date.now()
+		const imageA = await loadImage(noise)
+		// const imageA = await loadImage(image5)
 		console.log("LINE IS ~52px")
 		const canvas = document.getElementById("debug")
 		const ctx = canvas.getContext("2d", {
 			willReadFrequently: true,
 		})
-		let width = imageA.width
-		let height = imageA.height
+		let width = imageA.width / 3
+		let height = imageA.height / 3
 		canvas.width = width
 		canvas.height = height
 
@@ -676,6 +769,7 @@ function App() {
 		ctx.drawImage(imageA, 0, 0, width, height)
 		imageData = ctx.getImageData(0, 0, width, height)
 		console.log(lineAlgorithm(imageData))
+		console.log(`Time taken: ${Date.now() - startAlgo}`)
 	}
 
 	return (
@@ -760,7 +854,7 @@ function App() {
 								onClick={() => {
 									var canvas = document.getElementById("download")
 									var context = canvas.getContext("2d")
-									imageBMP.current.map(({ bitmap, time }, i) => {
+									imageBMP.current.map(({ bitmap, date }, i) => {
 										if (checkedItems[i] == null || checkedItems[i] === true) {
 											canvas.width = bitmap.width
 											canvas.height = bitmap.height
@@ -773,7 +867,7 @@ function App() {
 											var gps = {}
 											console.log(new Date())
 											exif[piexif.ExifIFD.DateTimeOriginal] = format(
-												new Date(time),
+												new Date(date),
 												"yyyy:MM:dd HH:mm:SS"
 											)
 											exif[piexif.ExifIFD.ExposureTime] = 4
@@ -790,11 +884,8 @@ function App() {
 											var exifbytes = piexif.dump(exifObj)
 
 											var newJpeg = piexif.insert(exifbytes, jpegData)
-											console.log(exifObj)
-											console.log(exifbytes)
-											console.log(newJpeg)
 											anchor.href = newJpeg
-											anchor.download = `${new Date()
+											anchor.download = `${new Date(date)
 												.toString()
 												.replaceAll(" ", "_")}.jpg`
 											anchor.click()
@@ -810,7 +901,7 @@ function App() {
 				<Flex align="center" width="100%">
 					<img src={logo} className="App-logo" alt="logo" />
 					<Heading fontSize="4xl" colorScheme="blue">
-						SSA 221.1
+						SSA 224.1
 					</Heading>
 				</Flex>
 				<Text color="InfoText" fontSize="sm">
@@ -953,7 +1044,9 @@ function App() {
 						mt="5px"
 						colorScheme="blue"
 						variant="solid"
+						isDisabled={!isRecording}
 						onClick={(e) => {
+							setIsFinished(false)
 							stopStreamedVideo(e)
 						}}
 					>
@@ -967,7 +1060,7 @@ function App() {
 							variant="solid"
 							isDisabled={isRecording}
 							onClick={(e) => {
-								startRecording(e, true, 2400)
+								startRecording(e, true, 10000)
 								setIsFinished(false)
 								if (selectedTimer === TIMER_VALUES.duration) {
 									setTimeout(() => {
@@ -977,7 +1070,7 @@ function App() {
 								}
 							}}
 						>
-							Start Recording (Android 2400)
+							Start Recording (Android Max)
 						</Button>
 						<Button
 							mt="5px"
@@ -1015,7 +1108,7 @@ function App() {
 						>
 							Start Recording (Android 100)
 						</Button>
-						{/* <Button
+						<Button
 							mt="5px"
 							ml="5px"
 							colorScheme="blue"
@@ -1027,7 +1120,7 @@ function App() {
 							}}
 						>
 							Test line Detection
-						</Button> */}
+						</Button>
 					</Flex>
 				)}
 				{/* <Button
@@ -1067,4 +1160,4 @@ function App() {
 	)
 }
 
-export { App }
+export { App, lineAlgorithm }

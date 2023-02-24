@@ -1,4 +1,4 @@
-/* eslint-disable no-restricted-globals */
+/* eslint-disable */
 
 // This service worker can be customized!
 // See https://developers.google.com/web/tools/workbox/modules
@@ -15,7 +15,7 @@ import { precacheAndRoute, createHandlerBoundToURL } from "workbox-precaching"
 import { registerRoute } from "workbox-routing"
 import { StaleWhileRevalidate } from "workbox-strategies"
 import XML from "xhr-shim"
-import { compareImages } from "./compareImages"
+import { lineAlgorithm } from "./App"
 
 global["XMLHttpRequest"] = XML
 
@@ -95,45 +95,62 @@ self.addEventListener("message", (event) => {
 	}
 })
 
-let canvasA = null
-
 // Any other custom service worker logic can go here.
+let canvasA = null
 let canvasB = null
-let group = null
-let bitmap = null
-// Waiting to receive the OffScreenCanvas
-self.addEventListener("message", (event) => {
-	if (event.data.canvasA) {
-		canvasA = event.data.canvasA
-	} else if (event.data.canvasB) {
-		canvasB = event.data.canvasB
-	} else {
-		const datestring = new Date().toString()
-		if (bitmap !== null) {
-			const { result, score } = compareImages(event.data.bitmap, bitmap)
-			bitmap = event.data.bitmap
-			if (result) {
-				console.log("detected a positive diff, uploading image")
-				let count = 0
-				const canvas = canvasB
-				canvas.width = bitmap.width
-				canvas.height = bitmap.height
-				const ctx = canvas.getContext("bitmaprenderer")
-				ctx.transferFromImageBitmap(bitmap)
 
-				canvas
-					.convertToBlob({ type: "image/jpeg", quality: 0.99 })
+let count = 0
+
+self.addEventListener("message", async (event) => {
+	canvasA = new OffscreenCanvas(100, 1)
+	canvasB = new OffscreenCanvas(100, 1)
+
+	if (event.data.bitmap && !event.data.msg) {
+		console.log("processing bitmap")
+		console.log(event.data.bitmap)
+		console.log("PROCESSING EVENT")
+
+		const date = new Date().toString()
+		const { bitmap, group } = event.data
+		const ctx = canvasA.getContext("2d", { willReadFrequently: true })
+		ctx.globalCompositeOperation = "difference"
+		let width = bitmap.width / 3
+		let height = bitmap.height / 3
+		canvasA.width = width
+		canvasA.height = height
+		ctx.drawImage(bitmap, 0, 0, width, height)
+		console.log("draw image")
+		count++
+
+		if (count > 1) {
+			const imageData = ctx.getImageData(0, 0, width, height)
+			const { longestObject } = lineAlgorithm(imageData)
+			if (longestObject.size > 7) {
+				console.log("detected a positive diff, uploading image")
+				canvasB.width = bitmap.width
+				canvasB.height = bitmap.height
+				const ctxB = canvasB.getContext("bitmaprenderer")
+				ctxB.transferFromImageBitmap(bitmap)
+				canvasB
+					.convertToBlob({ type: "image/jpeg", quality: 0.95 })
 					.then(async (res) => {
 						console.log(res)
 						count = count + 1
-						var imagesRef = ref(storageRef, `${group}/${datestring}`)
+						var imagesRef = ref(storageRef, `${group}/${date}`)
 						await uploadBytes(imagesRef, res)
-						console.log(`uploaded to firebase ${group}/${datestring}`)
+						console.log(`uploaded to firebase ${group}/${date}`)
 					})
+				// self.clients.matchAll().then(function (clients) {
+				// 	clients.forEach(function (client) {
+				// 		client.postMessage({
+				// 			date,
+				// 			longestObject,
+				// 			bitmap,
+				// 			msg: "Hey I just got a fetch from you!",
+				// 		})
+				// 	})
+				// })
 			}
-		} else {
-			bitmap = event.data.bitmap
-			group = event.data.group
 		}
 	}
 })
