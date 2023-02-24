@@ -1,8 +1,9 @@
 {
   "files": {
     "main.css": "/ssa-pwa/static/css/main.fa621b42.css",
-    "main.js": "/ssa-pwa/static/js/main.08f1acab.js",
+    "main.js": "/ssa-pwa/static/js/main.b19a8d14.js",
     "static/js/787.359316be.chunk.js": "/ssa-pwa/static/js/787.359316be.chunk.js",
+    "static/media/noise.jpeg": "/ssa-pwa/static/media/noise.2d9f27791c08eef0c1ff.jpeg",
     "static/media/9.jpeg": "/ssa-pwa/static/media/9.eb39beedd6fa0e39ed44.jpeg",
     "static/media/4.jpeg": "/ssa-pwa/static/media/4.8d4e3dc48625a8b4d17d.jpeg",
     "static/media/3.jpeg": "/ssa-pwa/static/media/3.9c1bca9ec5a9ddff1ac9.jpeg",
@@ -19,11 +20,11 @@
     "static/media/line2.png": "/ssa-pwa/static/media/line2.f88bd7181d37d234560c.png",
     "index.html": "/ssa-pwa/index.html",
     "main.fa621b42.css.map": "/ssa-pwa/static/css/main.fa621b42.css.map",
-    "main.08f1acab.js.map": "/ssa-pwa/static/js/main.08f1acab.js.map",
+    "main.b19a8d14.js.map": "/ssa-pwa/static/js/main.b19a8d14.js.map",
     "787.359316be.chunk.js.map": "/ssa-pwa/static/js/787.359316be.chunk.js.map"
   },
   "entrypoints": [
     "static/css/main.fa621b42.css",
-    "static/js/main.08f1acab.js"
+    "static/js/main.b19a8d14.js"
   ]
 }
