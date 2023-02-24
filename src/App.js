@@ -13,6 +13,9 @@ import image9 from "./test/9.jpeg"
 import test3 from "./test/test3.png"
 import noise from "./test/noise.jpeg"
 import line2 from "./test/line2.png"
+import matt1 from "./test/matt1.jpeg"
+import matt2 from "./test/matt2.jpeg"
+import matt3 from "./test/matt3.jpeg"
 
 import algoRef from "./test/algoRef.jpeg"
 import algoRefLine from "./test/algoRefLine.jpeg"
@@ -119,13 +122,30 @@ function RadioCard(props) {
 	)
 }
 
-function lineAlgorithm(imageData) {
+function lineAlgorithm(imageData, debug = false) {
 	// Noise threshold
-	var PIXEL_SCORE_THRESHOLD = 48
+	var centerPixel = (imageData.width / 2) * (imageData.height / 2) * 4
+	var PIXEL_SCORE_THRESHOLD =
+		48 +
+		(imageData.data[centerPixel] +
+			imageData.data[centerPixel + 1] +
+			imageData.data[centerPixel + 2]) /
+			3
+	console.log({ PIXEL_SCORE_THRESHOLD })
 	let rows = imageData.height
 	let cols = imageData.width
-	let res = 0
-	let arr
+
+	let c
+	let ctx
+	let imgData
+
+	if (debug) {
+		c = document.getElementById("debug2")
+		ctx = c.getContext("2d")
+		imgData = ctx.createImageData(imageData.width, imageData.height)
+		c.width = imageData.width
+		c.height = imageData.height
+	}
 
 	let dp = Array(rows).fill({})
 	let objects = {}
@@ -138,12 +158,6 @@ function lineAlgorithm(imageData) {
 		size: 0,
 	}
 
-	// const c = document.getElementById("debug2");
-	// const ctx = c.getContext("2d");
-	// const imgData = ctx.createImageData(imageData.width, imageData.height);
-	// c.width = imageData.width
-	// c.height = imageData.height
-
 	function getSize(obj) {
 		return Math.sqrt(
 			(obj.istart - obj.iend) ** 2 + (obj.jstart - obj.jend) ** 2
@@ -153,23 +167,31 @@ function lineAlgorithm(imageData) {
 
 	for (let i = 0; i < rows; i++) {
 		if (count > 1000) {
+			if (debug) {
+				ctx.putImageData(imgData, 0, 0)
+			}
 			return { longestObject }
 		}
 		for (let j = 0; j < cols; j++) {
 			if (count > 1000) {
+				if (debug) {
+					ctx.putImageData(imgData, 0, 0)
+				}
 				return { longestObject }
 			}
 			let k = (i * cols + j) * 4
-			let r = imageData.data[k] / 3
-			let g = imageData.data[k + 1] / 3
-			let b = imageData.data[k + 2] / 3
-			let pixelScore = r + g + b
+			let r = imageData.data[k]
+			let g = imageData.data[k + 1]
+			let b = imageData.data[k + 2]
+			let pixelScore = (r + g + b) / 3
 
 			if (pixelScore >= PIXEL_SCORE_THRESHOLD) {
-				// imgData.data[k] = 255;
-				// imgData.data[k+1] = 0;
-				// imgData.data[k+2] = 0;
-				// imgData.data[k+3] = 255;
+				if (debug) {
+					imgData.data[k] = 255
+					imgData.data[k + 1] = 0
+					imgData.data[k + 2] = 0
+					imgData.data[k + 3] = 255
+				}
 				count++
 				let left
 				let topLeft
@@ -270,8 +292,9 @@ function lineAlgorithm(imageData) {
 
 	// console.log({longestObject})
 	// console.log(JSON.parse(JSON.stringify(dp)))
-
-	// ctx.putImageData(imgData, 0, 0);
+	if (debug) {
+		ctx.putImageData(imgData, 0, 0)
+	}
 	console.log({ count })
 	return { longestObject }
 }
@@ -652,8 +675,14 @@ function App() {
 			if (bitmap && longestObject) {
 				context.drawImage(
 					bitmap,
-					Math.max(0, longestObject.jstart - 100),
-					Math.max(0, longestObject.istart - 100),
+					Math.min(
+						bitmap.width - 300,
+						Math.max(0, longestObject.jstart * 3 - 100)
+					),
+					Math.min(
+						bitmap.height - 292,
+						Math.max(0, longestObject.istart * 3 - 100)
+					),
 					300,
 					292,
 					0,
@@ -753,9 +782,8 @@ function App() {
 
 	async function testLineAlgorithm() {
 		const startAlgo = Date.now()
-		const imageA = await loadImage(noise)
-		// const imageA = await loadImage(image5)
-		console.log("LINE IS ~52px")
+		const imageA = await loadImage(image1)
+		console.log("LINE IS ~52px (/3 = ~17.3")
 		const canvas = document.getElementById("debug")
 		const ctx = canvas.getContext("2d", {
 			willReadFrequently: true,
@@ -768,8 +796,18 @@ function App() {
 		let imageData
 		ctx.drawImage(imageA, 0, 0, width, height)
 		imageData = ctx.getImageData(0, 0, width, height)
-		console.log(lineAlgorithm(imageData))
+		const { longestObject } = lineAlgorithm(imageData, true)
+		console.log(longestObject)
+		const bitmap = await createImageBitmap(imageA)
+
+		imageBMP.current.push({
+			bitmap,
+			date: new Date(),
+			longestObject,
+		})
+		console.log(imageBMP.current)
 		console.log(`Time taken: ${Date.now() - startAlgo}`)
+		onOpen()
 	}
 
 	return (
