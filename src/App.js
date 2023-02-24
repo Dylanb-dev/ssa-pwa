@@ -939,7 +939,7 @@ function App() {
 				<Flex align="center" width="100%">
 					<img src={logo} className="App-logo" alt="logo" />
 					<Heading fontSize="4xl" colorScheme="blue">
-						SSA 224.1
+						SSA 224.2
 					</Heading>
 				</Flex>
 				<Text color="InfoText" fontSize="sm">
