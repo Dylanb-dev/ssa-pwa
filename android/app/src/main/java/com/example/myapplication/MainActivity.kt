@@ -1,19 +1,21 @@
 package com.example.myapplication
 
+import android.annotation.SuppressLint
 import android.content.Intent
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
+import android.hardware.camera2.CameraCharacteristics
+import android.hardware.camera2.CaptureRequest
 import android.os.Build
-import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
-import androidx.camera.core.CameraSelector
-import androidx.camera.core.ImageCapture
-import androidx.camera.core.ImageCaptureException
-import androidx.camera.core.Preview
+import androidx.appcompat.app.AppCompatActivity
+import androidx.camera.camera2.interop.Camera2CameraInfo
+import androidx.camera.camera2.interop.Camera2Interop
+import androidx.camera.core.*
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
@@ -24,17 +26,21 @@ import java.io.File
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
+
+@androidx.camera.camera2.interop.ExperimentalCamera2Interop
+
 class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private lateinit var cameraProviderFuture: ListenableFuture<ProcessCameraProvider>
     private lateinit var cameraSelector: CameraSelector
     private var imageCapture: ImageCapture? = null
+    private var imageAnalysis: ImageAnalysis? = null
+
     private lateinit var imgCaptureExecutor: ExecutorService
     private val cameraProviderResult = registerForActivityResult(ActivityResultContracts.RequestPermission()){ permissionGranted->
         if(permissionGranted){
-            // cut and paste the previous startCamera() call here.
             startCamera()
-        }else {
+        } else {
             Snackbar.make(binding.root,"The camera permission is required", Snackbar.LENGTH_INDEFINITE).show()
         }
     }
@@ -50,6 +56,8 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+
         binding.imgCaptureBtn.setOnClickListener{
             takePhoto()
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -62,12 +70,30 @@ class MainActivity : AppCompatActivity() {
         }
 
     }
+//    fun buildImageAnalysisUseCase(): ImageAnalysis {
+//        return ImageAnalysis.Builder()
+//            .setTargetAspectRatio(aspectRatio)
+//            .setTargetRotation(rotation)
+//            .setTargetResolution(resolution)
+//            .setBackpressureStrategy(strategy)
+//            .setImageQueueDepth(queueDepth)
+//            .build()
+//    }
 
+    @SuppressLint("RestrictedApi")
+    @androidx.camera.camera2.interop.ExperimentalCamera2Interop
     private fun startCamera(){
         // listening for data from the camera
         cameraProviderFuture.addListener({
             val cameraProvider = cameraProviderFuture.get()
-            imageCapture = ImageCapture.Builder().build()
+            val imageAnalysisBuilder = ImageAnalysis.Builder()
+            imageAnalysis = imageAnalysisBuilder.build()
+
+            val imageCaptureBuilder = ImageCapture.Builder()
+            Camera2Interop.Extender(imageCaptureBuilder)
+                .setCaptureRequestOption(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_OFF)
+                .setCaptureRequestOption(CaptureRequest.SENSOR_EXPOSURE_TIME, 3000000000)
+            imageCapture = imageCaptureBuilder.build()
             // connecting a preview use case to the preview in the xml file.
             val preview = Preview.Builder().build().also{
                 it.setSurfaceProvider(binding.preview.surfaceProvider)
@@ -76,7 +102,20 @@ class MainActivity : AppCompatActivity() {
                 // clear all the previous use cases first.
                 cameraProvider.unbindAll()
                 // binding the lifecycle of the camera to the lifecycle of the application.
-                cameraProvider.bindToLifecycle(this,cameraSelector,preview,imageCapture)
+                val camera = cameraProvider.bindToLifecycle(this,cameraSelector,preview, imageAnalysis)
+
+                // Set to best settings for satellite capture
+                val cameraControl = camera.cameraControl
+                val cameraInfo = camera.cameraInfo
+                val minZoom = cameraInfo.getZoomState().getValue()!!.getMinZoomRatio()
+                val camChars = Camera2CameraInfo.extractCameraCharacteristics(cameraInfo)
+                val sensorExposure = camChars
+                    .get(CameraCharacteristics.SENSOR_INFO_EXPOSURE_TIME_RANGE)
+                Log.d("sensor_exposure", sensorExposure.toString())
+                val sensorISO = camChars
+                    .get(CameraCharacteristics.SENSOR_INFO_SENSITIVITY_RANGE)
+                Log.d("sensorISO", sensorISO.toString())
+                cameraControl.setZoomRatio(minZoom)
             } catch (e: Exception) {
                 Log.d(TAG, "Use case binding failed")
             }
@@ -112,7 +151,20 @@ class MainActivity : AppCompatActivity() {
                         Log.d(TAG, "Error taking photo:$exception")
                     }
 
-                })
+                },
+//                object : ImageCapture.OnImageCapturedCallback() {
+//                    override fun onCaptureSuccess(image: ImageProxy) {
+//                        //get bitmap from image
+////                        val bitmap = imageProxyToBitmap(image)
+//                        Log.d("Image Proxy", "$image")
+//                        super.onCaptureSuccess(image)
+//                    }
+//
+//                    override fun onError(exception: ImageCaptureException) {
+//                        super.onError(exception)
+//                    }
+//                },
+                )
         }
     }
     @RequiresApi(Build.VERSION_CODES.M)

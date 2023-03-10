@@ -7,33 +7,47 @@ import image2 from "./test/2.jpeg"
 import image3 from "./test/3.jpeg"
 import image4 from "./test/4.jpeg"
 // @ts-ignore
+// @ts-ignore
 import image5 from "./test/5.jpeg"
+// @ts-ignore
 // @ts-ignore
 import image6 from "./test/6.jpeg"
 // @ts-ignore
+// @ts-ignore
 import image7 from "./test/7.jpeg"
+// @ts-ignore
 // @ts-ignore
 import image8 from "./test/8.jpeg"
 // @ts-ignore
+// @ts-ignore
 import image9 from "./test/9.jpeg"
+// @ts-ignore
 // @ts-ignore
 import test3 from "./test/test3.png"
 // @ts-ignore
+// @ts-ignore
 import noise from "./test/noise.jpeg"
+// @ts-ignore
 // @ts-ignore
 import line2 from "./test/line2.png"
 // @ts-ignore
+// @ts-ignore
 import matt1 from "./test/matt1.jpeg"
 // @ts-ignore
+// @ts-ignore
 import matt2 from "./test/matt2.jpeg"
+// @ts-ignore
 // @ts-ignore
 import matt3 from "./test/matt3.jpeg"
 
 // @ts-ignore
+// @ts-ignore
 import algoRef from "./test/algoRef.jpeg"
+// @ts-ignore
 // @ts-ignore
 import algoRefLine from "./test/algoRefLine.jpeg"
 
+// @ts-ignore
 // @ts-ignore
 import { compareImages } from "./compareImages"
 import { format } from "date-fns"
@@ -322,208 +336,6 @@ function lineAlgorithm(imageData, debug = false) {
 	return { longestObject }
 }
 
-// async function onBitmap(
-// 	bitmap,
-// 	number = 0,
-// 	date = new Date(),
-// 	groupDate = new Date(),
-// 	lightenContext,
-// 	differenceContext
-// ) {
-// 	console.log(bitmap)
-// 	const DOWNSAMPLE = 3
-
-// 	const downWidth = bitmap.width / DOWNSAMPLE
-// 	const downHeight = bitmap.height / DOWNSAMPLE
-
-// 	// If frames 0-3, just build up lighten and difference image
-// 	if (number % 3 !== 0) {
-// 		console.log(`drawing frame ${number}`)
-// 		lightenContext.drawImage(bitmap, 0, 0, bitmap.width, bitmap.height)
-// 		differenceContext.drawImage(bitmap, 0, 0, downWidth, downHeight)
-// 	}
-// 	// Do streak detection, save image if has streak, reset canvases
-// 	else if (number !== 0) {
-// 		console.log(`drawing frame ${number} and checking for streak`)
-// 		lightenContext.drawImage(bitmap, 0, 0, bitmap.width, bitmap.height)
-// 		differenceContext.drawImage(bitmap, 0, 0, downWidth, downHeight)
-
-// 		const imageData = differenceContext.getImageData(
-// 			0,
-// 			0,
-// 			downWidth,
-// 			downHeight
-// 		)
-// 		const { longestObject } = lineAlgorithm(imageData)
-// 		console.log({ longestObject })
-// 		// Streak found, create final image
-// 		if (longestObject.size > 10 && longestObject.size < 500) {
-// 			var zeroth = {}
-// 			let exif = {}
-// 			let gps = {}
-// 			exif[piexif.ExifIFD.DateTimeOriginal] = format(
-// 				new Date(date),
-// 				"yyyy:MM:dd HH:mm:SS"
-// 			)
-// 			exif[piexif.ExifIFD.ExposureTime] = 4
-// 			exif[36880] = "+08:00"
-// 			var lat = -32.05
-// 			var lng = 115.9
-// 			gps[piexif.GPSIFD.GPSLatitudeRef] = lat < 0 ? "S" : "N"
-// 			gps[piexif.GPSIFD.GPSLatitude] = piexif.GPSHelper.degToDmsRational(lat)
-// 			gps[piexif.GPSIFD.GPSLongitudeRef] = lng < 0 ? "W" : "E"
-// 			gps[piexif.GPSIFD.GPSLongitude] = piexif.GPSHelper.degToDmsRational(lng)
-// 			var exifObj = { "0th": zeroth, Exif: exif, GPS: gps }
-// 			var exifbytes = piexif.dump(exifObj)
-
-// 			// @ts-ignore
-// 			console.log(offScreenCanvasLighten.current)
-
-// 			const canvas = document.createElement("canvas")
-// 			canvas.width = bitmap.width
-// 			canvas.height = bitmap.height
-// 			const ctx = canvas.getContext("2d")
-// 			ctx.drawImage(
-// 				offScreenCanvasLighten.current,
-// 				0,
-// 				0,
-// 				bitmap.width,
-// 				bitmap.height
-// 			)
-
-// 			const jpegData = canvas.toDataURL("image/jpeg", 0.95)
-
-// 			var newJpeg = piexif.insert(exifbytes, jpegData)
-
-// 			var imagesRef = ref(
-// 				storageRef,
-// 				`${groupDate}/${new Date(date).toString()}`
-// 			)
-// 			uploadString(imagesRef, newJpeg, "data_url")
-// 			console.log(
-// 				`uploaded to firebase ${groupDate}/${new Date(date).toString()}`
-// 			)
-// 			// var anchor = document.createElement("a")
-// 			// anchor.href = newJpeg
-// 			// anchor.download = `${new Date(date)
-// 			// 	.toString()
-// 			// 	// @ts-ignore
-// 			// 	.replaceAll(" ", "_")}.jpg`
-// 			// anchor.click()
-
-// 			console.log("pushing bitmap")
-// 			// @ts-ignore
-// 			return imageBMP.current.push({
-// 				jpeg: newJpeg,
-// 				date,
-// 				longestObject,
-// 			})
-// 		}
-// 		// reset canvases
-// 		lightenContext.clearRect(0, 0, bitmap.width, bitmap.height)
-// 		differenceContext.clearRect(0, 0, downWidth, downHeight)
-// 	}
-// 	// First frame, no streak logic
-// 	else if (number === 0) {
-// 		lightenContext.drawImage(bitmap, 0, 0)
-// 		differenceContext.drawImage(bitmap, 0, 0, downWidth, downHeight)
-// 	}
-
-// 	// Check for longest object
-
-// 	// 	if (frameCount === 8) {
-// 	// 		const bitmap = await createImageBitmap(frame)
-// 	// 		let width = bitmap.width / 3
-// 	// 		let height = bitmap.height / 3
-// 	// 		canvasLighten.width = width
-// 	// 		canvasLighten.height = height
-// 	// 		// @ts-ignore
-// 	// 		ctx.globalCompositeOperation = "lighten"
-// 	// 	}
-// 	// 	if (frameCount > 2 && frame.timestamp > last) {
-// 	// 		const date = new Date()
-// 	// 		if (frameCount > 7) {
-// 	// 			const bitmap = await createImageBitmap(frame)
-// 	// 			let width = bitmap.width / 3
-// 	// 			let height = bitmap.height / 3
-// 	// 			if (!bitmapLastvisible) {
-// 	// 				bitmapLastvisible = bitmap
-// 	// 				// @ts-ignore
-// 	// 				ctx.drawImage(bitmapLastvisible, 0, 0, width, height)
-// 	// 			} else {
-// 	// 				console.log("drawing against ref")
-// 	// 				// @ts-ignore
-// 	// 				ctx.clearRect(0, 0, width, height)
-
-// 	// 				// @ts-ignore
-// 	// 				ctx.drawImage(bitmapLastvisible, 0, 0, width, height)
-// 	// 				// @ts-ignore
-// 	// 				ctx.drawImage(bitmap, 0, 0, width, height)
-// 	// 			}
-// 	// 			// @ts-ignore
-// 	// 			console.log(ctx.globalCompositeOperation)
-
-// 	// 			// @ts-ignore
-// 	// 			const imageData = ctx.getImageData(0, 0, width, height)
-// 	// 			if (frameCount > 7) {
-// 	// 				const { longestObject } = lineAlgorithm(imageData)
-// 	// 				if (longestObject.size > 100) {
-// 	// 					bitmapLastvisible = bitmap
-// 	// 				}
-// 	// 				if (longestObject.size > 10 && longestObject.size < 500) {
-// 	// 					console.log("OBJECT FOUND, PUSHING BMP")
-// 	// 					// @ts-ignore
-// 	// 					imageBMP.current.push({
-// 	// 						bitmap,
-// 	// 						date,
-// 	// 						longestObject,
-// 	// 					})
-// 	// 					canvasDifference.width = bitmap.width
-// 	// 					canvasDifference.height = bitmap.height
-// 	// 					const ctxB = canvasDifference.getContext("2d")
-// 	// 					// @ts-ignore
-// 	// 					ctxB.drawImage(bitmap, 0, 0, bitmap.width, bitmap.height)
-
-// 	// 					canvasDifference
-// 	// 						// @ts-ignore
-// 	// 						.convertToBlob({ type: "image/jpeg", quality: 0.95 })
-// 	// 						.then(async (res) => {
-// 	// 							let exif = {}
-// 	// 							let gps = {}
-// 	// 							exif[piexif.ExifIFD.DateTimeOriginal] = format(
-// 	// 								new Date(date),
-// 	// 								"yyyy:MM:dd HH:mm:SS"
-// 	// 							)
-// 	// 							exif[piexif.ExifIFD.ExposureTime] = 4
-// 	// 							exif[36880] = "+08:00"
-// 	// 							var lat = -32.05
-// 	// 							var lng = 115.9
-// 	// 							gps[piexif.GPSIFD.GPSLatitudeRef] = lat < 0 ? "S" : "N"
-// 	// 							gps[piexif.GPSIFD.GPSLatitude] =
-// 	// 								piexif.GPSHelper.degToDmsRational(lat)
-// 	// 							gps[piexif.GPSIFD.GPSLongitudeRef] = lng < 0 ? "W" : "E"
-// 	// 							gps[piexif.GPSIFD.GPSLongitude] =
-// 	// 								piexif.GPSHelper.degToDmsRational(lng)
-// 	// 							var exifObj = { "0th": zeroth, Exif: exif, GPS: gps }
-// 	// 							var exifbytes = piexif.dump(exifObj)
-
-// 	// 							var newJpeg = piexif.insert(exifbytes, jpegData)
-// 	// 							var imagesRef = ref(
-// 	// 								storageRef,
-// 	// 								`${group}/${new Date(date).toString()}`
-// 	// 							)
-// 	// 							await uploadBytes(imagesRef, newJpeg)
-// 	// 							console.log(
-// 	// 								`uploaded to firebase ${group}/${new Date(
-// 	// 									date
-// 	// 								).toString()}`
-// 	// 							)
-// 	// 						})
-// 	// 				}
-// 	// 			}
-// 	// 		}
-// 	// }
-// }
 
 function App() {
 	const VIEW_WIDTH = Math.max(
@@ -543,9 +355,11 @@ function App() {
 	const [selectedTimer, setSelectedTimer] = useState(TIMER_VALUES.duration)
 	const [duration, setDuration] = useState(600)
 	const [numberOfImages, setNumberOfImages] = useState(5)
+	// @ts-ignore
 	const [serviceWorkerActive, setServiceWorkerActive] = useState(false)
 
 	const [hasAlarm, setHasAlarm] = useState(true)
+	// @ts-ignore
 	// @ts-ignore
 	const [hasCountdown, setHasCountdown] = useState(true)
 	const [debugMessage, setDebugMessage] = useState("")
@@ -557,20 +371,28 @@ function App() {
 	const { isOpen, onOpen, onClose } = useDisclosure()
 
 	const streamRef = useRef()
-	const imageBMP = useRef([])
+	const imageJpeg = useRef([])
+	// @ts-ignore
+	const bmpStack = useRef([])
+
 	const offScreenCanvasLighten = useRef()
+	// @ts-ignore
+	const offScreenCanvasLighter = useRef()
 	const offScreenCanvasDifference = useRef()
 	const offScreenCanvasFirestore = useRef()
+	const exposureTime = useRef()
+
+	const isProcessing = useRef(false)
 
 	// Initialise offscreen canvases
-	useEffect(() => {
-		// @ts-ignore
-		offScreenCanvasLighten.current = new OffscreenCanvas(0, 100)
-		// @ts-ignore
-		offScreenCanvasDifference.current = new OffscreenCanvas(0, 100)
-		// @ts-ignore
-		offScreenCanvasFirestore.current = new OffscreenCanvas(0, 100)
-	}, [])
+	// useEffect(() => {
+	// 	// @ts-ignore
+	// 	offScreenCanvasLighten.current = new OffscreenCanvas(0, 100)
+	// 	// @ts-ignore
+	// 	offScreenCanvasDifference.current = new OffscreenCanvas(0, 100)
+	// 	// @ts-ignore
+	// 	offScreenCanvasFirestore.current = new OffscreenCanvas(0, 100)
+	// }, [])
 
 	// onBitmap(
 	// 	bitmap,
@@ -583,32 +405,33 @@ function App() {
 	// Recieve a sequence of images, return possible streak 4s lighten image with exif data
 	const dingSound = new Audio(sound)
 	console.log("render")
-	useEffect(() => {
-		if ("serviceWorker" in navigator) {
-			navigator.serviceWorker.ready.then((registration) => {
-				console.log(`A service worker is active: ${registration.active}`)
-				setServiceWorkerActive(true)
-				console.log(navigator.serviceWorker)
-				navigator.serviceWorker.addEventListener("message", (event) => {
-					console.log("RECIEVED MESSAGE FROM WORKER")
-					const { date, longestObject, jpeg } = event.data
-					console.log({ date, longestObject, jpeg })
-					dingSound.play()
-					// @ts-ignore
-					imageBMP.current.push({
-						date,
-						longestObject,
-						jpeg,
-					})
-				})
-			})
-		} else {
-			console.error("Service workers are not supported.")
-		}
-	}, [])
+	// useEffect(() => {
+	// 	setServiceWorkerActive(true)
+
+	// 	// if ("serviceWorker" in navigator) {
+	// 	// 	navigator.serviceWorker.ready.then((registration) => {
+	// 	// 		console.log(`A service worker is active: ${registration.active}`)
+	// 	// 		setServiceWorkerActive(true)
+	// 	// 		console.log(navigator.serviceWorker)
+	// 	// 		navigator.serviceWorker.addEventListener("message", (event) => {
+	// 	// 			console.log("RECIEVED MESSAGE FROM WORKER")
+	// 	// 			const { date, longestObject, jpeg } = event.data
+	// 	// 			console.log({ date, longestObject, jpeg })
+	// 	// 			dingSound.play()
+	// 	// 			// @ts-ignore
+	// 	// 			imageJpeg.current.push({
+	// 	// 				date,
+	// 	// 				longestObject,
+	// 	// 				jpeg,
+	// 	// 			})
+	// 	// 		})
+	// 	// 	})
+	// 	// } else {
+	// 	// 	console.error("Service workers are not supported.")
+	// 	// }
+	// }, [])
 
 	async function startRecording(
-		// @ts-ignore
 		// @ts-ignore
 		e,
 		isAndroid = false,
@@ -619,14 +442,17 @@ function App() {
 		setDebugMessage("")
 		const constraints = {
 			audio: false,
+			// video: true
 			video: {
 				facingMode: "environment",
-				height: 8000,
-				width: 8000,
+				width: { ideal: 3500 },
+				height: { ideal: 3500 },
+				resizeMode: {ideal: 'none'},
+				frameRate: { ideal: 10 },
 			},
 		}
 		try {
-			const readyServiceWorker = await navigator.serviceWorker.ready
+			// const readyServiceWorker = await navigator.serviceWorker.ready
 			const stream = await navigator.mediaDevices.getUserMedia(constraints)
 			// @ts-ignore
 			streamRef.current = stream
@@ -637,48 +463,71 @@ function App() {
 		}
 	}
 
-	async function handleSuccess(isAndroid = false, iso = 1000, test = false) {
+	async function handleSuccess(
 		// @ts-ignore
-		setFramesCaptured(0)
-
-		imageBMP.current = []
+		isAndroid = false,
+		// @ts-ignore
+		defaultIso = 1000,
+		test = false
+	) {
+		// @ts-ignore
+		console.log(streamRef.current)
+		imageJpeg.current = []
 		console.log("handleSuccess")
 		const stream = streamRef.current
 		const video = document.querySelector("#video-preview")
-
-		// @ts-ignore
 		video.srcObject = stream
-
+	
+		// @ts-ignore
+		console.log({stream})
 		// @ts-ignore
 		const [track] = stream.getVideoTracks()
+		console.log({track})
+
 		document.createElement("canvas")
 
 		const capabilities = track.getCapabilities()
 		const settings = track.getSettings()
-
+	
 		console.log("Capabilities: ", capabilities)
 		console.log("Settings: ", settings)
 		// Basic settings for all camera
-
-		if (test || !capabilities.iso) {
-			await track.applyConstraints({
-				advanced: [
-					{
-						frameRate: Math.max(1, capabilities.frameRate.min),
-					},
-				],
-			})
-		} else if (
+		// setDebugMessage(JSON.stringify({capabilities, settings}))
+		// Set exposure time and iso off camera settings
+		if (
 			!test &&
-			isAndroid &&
 			capabilities.focusMode &&
 			capabilities.focusDistance &&
 			capabilities.zoom &&
 			capabilities.whiteBalanceMode &&
 			capabilities.exposureMode &&
 			capabilities.iso &&
+			capabilities.exposureTime &&
 			capabilities.colorTemperature
 		) {
+			let maxExposure = capabilities.exposureTime.max
+			let iso
+			if (maxExposure > 40000) {
+				// @ts-ignore
+				exposureTime.current = 40000
+				iso = 400
+			} else if (maxExposure >= 20000) {
+				// @ts-ignore
+				exposureTime.current = 20000
+				iso = 800
+			} else if (maxExposure >= 10000) {
+				// @ts-ignore
+				exposureTime.current = 10000
+				iso = 1600
+			} else if (maxExposure >= 5000) {
+				// @ts-ignore
+				exposureTime.current = 5000
+				iso = Math.min(3200, capabilities.iso.max)
+			} else if (maxExposure >= 1000) {
+				// @ts-ignore
+				exposureTime.current = 1000
+				iso = Math.min(6400, capabilities.iso.max)
+			}
 			await track.applyConstraints({
 				advanced: [
 					{
@@ -692,138 +541,292 @@ function App() {
 			await track.applyConstraints({
 				advanced: [
 					{
-						exposureTime: Math.min(10000, capabilities.exposureTime.max),
+						exposureTime: exposureTime.current,
 						zoom: capabilities.zoom.min,
 						focusDistance: capabilities.focusDistance.max,
+						// @ts-ignore
 						iso: Math.min(iso, capabilities.iso.max),
 					},
 				],
 			})
+		} else if (test && capabilities.exposureMode) {
+			console.log("test")
+			// @ts-ignore
+			exposureTime.current = 1000
+			await track.applyConstraints({
+				advanced: [
+					{
+						exposureMode: "manual",
+					},
+				],
+			})
+			await track.applyConstraints({
+				advanced: [
+					{
+						exposureTime: exposureTime.current,
+					},
+				],
+			})
 		} else {
-			setDebugMessage(
-				"Sorry your device does not support the correct capture settings"
-			)
-			console.log(
-				"Sorry your device does not support the correct capture settings"
-			)
-			stopStreamedVideo()
+			// @ts-ignore
+			exposureTime.current = 1000
 		}
 
-		setTimeout(() => console.log("Settings: ", track.getSettings()), 10000)
-		console.log(track)
+		setTimeout(() => {
+			const settings = track.getSettings()
+			if (!settings.exposureTime && settings.frameRate) {
+				console.log({ stream })
+				//@ts-ignore
+				exposureTime.current = Math.round(10000 / settings.frameRate)
+			}
+			// exposureTime.current = settings.frameRate
+			console.log("Settings: ", settings)
+		}, 5000)
 		// @ts-ignore
 		// eslint-disable-next-line
 		const readable = new MediaStreamTrackProcessor(track).readable
 
 		// vars to control our read loop
-		let last = 0
+		// @ts-ignore
+		let framesPerFourSeconds = Math.floor(40000 / exposureTime.current)
+		let fullcount = 0
+		let last
 		let frameCount = 0
 		let group = new Date().toString()
 		const queuingStrategy = new CountQueuingStrategy({ highWaterMark: 1 })
-
+		console.log({ framesPerFourSeconds })
 		// @ts-ignore
 		let lightenContext
 		// @ts-ignore
 		let differenceContext
 		// @ts-ignore
+		// @ts-ignore
 		let firestoreContext
+		const START_FRAME = 5
 
-		const sw = await navigator.serviceWorker.ready
-		const serviceWorker = sw.active
+		let count = -START_FRAME - 1
+		// const sw = await navigator.serviceWorker.ready
+		// const serviceWorker = sw.active
 		const writableStream = new WritableStream(
 			{
 				write: async (frame) => {
 					frameCount++
-					const START_FRAME = 5
+					count++
 
-					if (frameCount === 5 && serviceWorker) {
-						const bitmapRef = await createImageBitmap(frame)
-						const diffWidth = bitmapRef.width / 3
-						const diffHeight = bitmapRef.height / 3
-						console.log(serviceWorker)
-						console.log({
-							width: bitmapRef.width,
-							height: bitmapRef.height,
-							diffWidth,
-							diffHeight,
-						})
+					if (frameCount === START_FRAME) {
+						console.log("START_FRAME")
+						const bitmap = await createImageBitmap(frame)
+						const diffWidth = Math.floor(bitmap.width / 3)
+						const diffHeight = Math.floor(bitmap.height / 3)
+						last = frame.timestamp
 						// @ts-ignore
-						serviceWorker.postMessage(
-							{
-								width: bitmapRef.width,
-								height: bitmapRef.height,
-								diffWidth,
-								diffHeight,
-							},
-							[bitmapRef]
-						)
-
-						// offScreenCanvasLighten.current.width = bitmapRef.width
-						// offScreenCanvasLighten.current.height = bitmapRef.height
-
-						// offScreenCanvasDifference.current.width = diffWidth
-						// offScreenCanvasDifference.current.height = diffHeight
-
-						// offScreenCanvasFirestore.current.width = bitmapRef.width
-						// offScreenCanvasFirestore.current.height = bitmapRef.height
-
-						// lightenContext = offScreenCanvasLighten.current.getContext("2d", {
-						// 	willReadFrequently: true,
-						// })
-						// lightenContext.globalCompositeOperation = "lighten"
-
-						// differenceContext = offScreenCanvasDifference.current.getContext(
-						// 	"2d",
-						// 	{ willReadFrequently: true }
+						// serviceWorker.postMessage(
+						// 	{
+						// 		width: bitmap.width,
+						// 		height: bitmap.height,
+						// 		diffWidth,
+						// 		diffHeight,
+						// 	},
+						// 	[bitmap]
 						// )
-						// differenceContext.globalCompositeOperation = "difference"
+						//@ts-ignore
+						offScreenCanvasLighten.current = document.createElement("canvas")
+						// @ts-ignore
+						offScreenCanvasLighten.current.width = bitmap.width
+						// @ts-ignore
+						offScreenCanvasLighten.current.height = bitmap.height
+						//@ts-ignore
+						offScreenCanvasDifference.current = document.createElement("canvas")
+						// @ts-ignore
+						offScreenCanvasDifference.current.width = diffWidth
+						// @ts-ignore
+						offScreenCanvasDifference.current.height = diffHeight
+						// offScreenCanvasDifference.current = new OffscreenCanvas(diffWidth, diffHeight)
 
-						// firestoreContext = offScreenCanvasFirestore.current.getContext("2d")
-					}
+						// //@ts-ignore
+						// offScreenCanvasFirestore.current.width = bitmap.width
+						// //@ts-ignore
+						// offScreenCanvasFirestore.current.height = bitmap.height
+						//@ts-ignore
+						lightenContext = offScreenCanvasLighten.current.getContext("2d", {
+							willReadFrequently: true,
+						})
+						lightenContext.globalCompositeOperation =
+							// @ts-ignore
+							exposureTime.current < 10000 ? "lighter" : "lighten"
+						//@ts-ignore
+						differenceContext = offScreenCanvasDifference.current.getContext(
+							"2d",
+							{ willReadFrequently: true }
+						)
+						differenceContext.globalCompositeOperation = "difference"
+						bitmap.close()
 
-					// Startup frames
-					if (
+						// firestoreContext = offScreenCanvasFirestore.current.getContext("2d")}
+
+						// 	// Startup frames
+					} else if (
 						frameCount > START_FRAME &&
 						frame.timestamp > last &&
-						serviceWorker
+						count % framesPerFourSeconds !== 0 &&
+						!isProcessing.current
 					) {
+						fullcount++
 						// @ts-ignore
-						// let startAlgo = Date.now()
-						// const lightenCanvas = offScreenCanvasLighten.current
-						// const differenceCanvas = offScreenCanvasDifference.current
+						let startAlgo = Date.now()
+						last = frame.timestamp
 						const bitmap = await createImageBitmap(frame)
-						console.log(serviceWorker)
-						console.log({
-							bitmap,
-							group,
-							number: frameCount - START_FRAME - 1,
-						})
+						// bmpStack.current.push(bitmap)
+						// console.log({ differenceContext, lightenContext })
+						const diffWidth = Math.floor(bitmap.width / 3)
+						const diffHeight = Math.floor(bitmap.height / 3)
+						differenceContext.drawImage(bitmap, 0, 0, diffWidth, diffHeight)
+						lightenContext.drawImage(bitmap, 0, 0)
+						bitmap.close()
+						console.log(`time taken =  ${Date.now() - startAlgo}`)
+					} else if (
+						frameCount > START_FRAME &&
+						frame.timestamp > last &&
+						count % framesPerFourSeconds === 0 &&
+						!isProcessing.current
+					) {
+						isProcessing.current = true
+						fullcount++
+
+						const bitmap = await createImageBitmap(frame)
+
+						const width = bitmap.width
+						const height = bitmap.height
+						const diffWidth = Math.floor(width / 3)
+						const diffHeight = Math.floor(height / 3)
+
+						differenceContext.drawImage(bitmap, 0, 0, diffWidth, diffHeight)
+						lightenContext.drawImage(bitmap, 0, 0)
+
+						bitmap.close()
+
+						const date = new Date()
+						const lightenCanvas = offScreenCanvasLighten.current
 						// @ts-ignore
-						serviceWorker.postMessage(
-							{
-								bitmap,
-								group,
-								number: frameCount - START_FRAME - 1,
-							},
-							[bitmap]
+						const differenceCanvas = offScreenCanvasDifference.current
+
+						const imageData = differenceContext.getImageData(
+							0,
+							0,
+							diffWidth,
+							diffHeight
 						)
-						// onBitmap(
-						// 	bitmap,
-						// 	frameCount - 6,
-						// 	new Date(),
-						// 	group,
-						// 	lightenContext,
-						// 	differenceContext
-						// )
+						const { longestObject } = lineAlgorithm(imageData)
+						console.log({ longestObject })
+						// Streak found, create final image
+						if (longestObject.size > 10 && longestObject.size < 500) {
+							var zeroth = {}
+							let exif = {}
+							let gps = {}
+							exif[piexif.ExifIFD.DateTimeOriginal] = format(
+								new Date(date),
+								"yyyy:MM:dd HH:mm:SS"
+							)
+							exif[piexif.ExifIFD.ExposureTime] = "4 seconds"
+							exif[36880] = "+08:00"
+							var lat = -32.05
+							var lng = 115.9
+							gps[piexif.GPSIFD.GPSLatitudeRef] = lat < 0 ? "S" : "N"
+							gps[piexif.GPSIFD.GPSLatitude] =
+								piexif.GPSHelper.degToDmsRational(lat)
+							gps[piexif.GPSIFD.GPSLongitudeRef] = lng < 0 ? "W" : "E"
+							gps[piexif.GPSIFD.GPSLongitude] =
+								piexif.GPSHelper.degToDmsRational(lng)
+							var exifObj = { "0th": zeroth, Exif: exif, GPS: gps }
+							var exifbytes = piexif.dump(exifObj)
+
+							//@ts-ignore
+
+							lightenCanvas.toBlob(
+								(blob) => {
+									var reader = new FileReader()
+									reader.onload = function (e) {
+										//@ts-ignore
+										var jpegData = piexif.insert(exifbytes, e.target.result)
+										console.log("pushing jpeg")
+										//@ts-ignore
+										var imagesRef = ref(
+											storageRef,
+											`${group}/${new Date(date).toString()}`
+										)
+										uploadString(imagesRef, jpegData, "data_url")
+										console.log(
+											`uploaded to firebase ${group}/${new Date(
+												date
+											).toString()}`
+										)
+
+										// @ts-ignore
+										imageJpeg.current.push({
+											jpeg: jpegData,
+											date,
+											longestObject,
+										})
+
+										// reset canvases
+										lightenContext.globalCompositeOperation = "source-over"
+										differenceContext.globalCompositeOperation = "source-over"
+										//@ts-ignore
+										lightenContext.clearRect(0, 0, width, height)
+										//@ts-ignore
+										differenceContext.clearRect(0, 0, diffWidth, diffHeight)
+
+										lightenContext.globalCompositeOperation =
+											// @ts-ignore
+											exposureTime.current < 10000 ? "lighter" : "lighten"
+										differenceContext.globalCompositeOperation = "difference"
+										count = 0
+										isProcessing.current = false
+									}
+									reader.readAsDataURL(blob)
+								},
+								"image/jpeg",
+								0.95
+							)
+						} else {
+							fullcount++
+							// reset canvases
+							lightenContext.globalCompositeOperation = "source-over"
+							differenceContext.globalCompositeOperation = "source-over"
+							//@ts-ignore
+							lightenContext.clearRect(0, 0, width, height)
+							//@ts-ignore
+							differenceContext.clearRect(0, 0, diffWidth, diffHeight)
+
+							lightenContext.globalCompositeOperation =
+								// @ts-ignore
+								exposureTime.current < 10000 ? "lighter" : "lighten"
+							differenceContext.globalCompositeOperation = "difference"
+							count = 0
+							isProcessing.current = false
+						}
 					}
+					last = frame.timestamp
 					frame.close()
+					if (
+						frameCount > START_FRAME &&
+						frameCount % framesPerFourSeconds === 0
+					) {
+						const canvas = document.getElementById("debug")
+						// @ts-ignore
+						const ctx = canvas.getContext("2d", { willReadFrequently: true })
+						ctx.drawImage(offScreenCanvasLighten.current, 0, 0, 302, 403)
+						setFramesCaptured(
+							// @ts-ignore
+							Math.round((frameCount - START_FRAME) / framesPerFourSeconds)
+						)
+						// @ts-ignore
+						setPhotosSaved(imageJpeg.current.length)
+					}
 					// @ts-ignore
-					setPhotosSaved(imageBMP.current.length)
-					// @ts-ignore
-					setFramesCaptured(frameCount - START_FRAME)
 
 					// 	// } else {
-					// 	// 	imageBMP.current.push(bitmap)
+					// 	// 	imageJpeg.current.push(bitmap)
 					// 	// 	console.log(`${last} pushed image`)
 					// 	// }
 
@@ -894,8 +897,7 @@ function App() {
 			// @ts-ignore
 			const ctx = canvas.getContext("2d")
 			ctx.globalCompositeOperation = "lighten"
-			console.log(ctx)
-			console.log(x)
+
 			ctx.drawImage(x, 0, 0)
 		})
 		console.log("Done")
@@ -924,7 +926,6 @@ function App() {
 	}, [framesCaptured])
 
 	// @ts-ignore
-	// @ts-ignore
 	let imageUrls = [image1, image2]
 	class ImagePreview extends Component {
 		componentDidMount() {
@@ -934,12 +935,10 @@ function App() {
 			// @ts-ignore
 			var context = canvas.getContext("2d")
 			const { longestObject, jpegUrl } = this.props
-			console.log({ longestObject, jpegUrl })
 			if (jpegUrl && longestObject) {
 				var imageObj = new Image()
 
 				imageObj.onload = function () {
-					console.log(this)
 					context.drawImage(
 						this,
 						Math.min(
@@ -1040,14 +1039,16 @@ function App() {
 		differenceContext.globalCompositeOperation = "difference"
 
 		// @ts-ignore
+		// @ts-ignore
 		const firestoreContext = offScreenCanvasFirestore.current.getContext("2d")
-		imageBMP.current = []
+		imageJpeg.current = []
 		// Process images
 		Promise.all(images.map(loadImage))
 			.then((imgs) => Promise.all(imgs.map((a) => createImageBitmap(a))))
 			.then(async (x) => {
 				const startAlgo = Date.now()
 
+				// @ts-ignore
 				// @ts-ignore
 				x.map((bitmap, i) => {
 					// return onBitmap(
@@ -1061,11 +1062,11 @@ function App() {
 				})
 
 				await sleep(1000)
-				console.log(imageBMP.current)
-				if (imageBMP.current.length > 0) {
-					console.log(imageBMP.current)
+				console.log(imageJpeg.current)
+				if (imageJpeg.current.length > 0) {
+					console.log(imageJpeg.current)
 					// @ts-ignore
-					const imgSrc = imageBMP.current[0].jpeg
+					const imgSrc = imageJpeg.current[0].jpeg
 
 					var img = document.getElementById("debugImg")
 					// @ts-ignore
@@ -1075,7 +1076,7 @@ function App() {
 					// @ts-ignore
 					img.src = imgSrc
 					// @ts-ignore
-					ctx.drawImage(imageBMP.current[0].difference, 0, 0)
+					ctx.drawImage(imageJpeg.current[0].difference, 0, 0)
 				}
 
 				const endAlgo = Date.now()
@@ -1083,6 +1084,7 @@ function App() {
 			})
 	}
 
+	// @ts-ignore
 	async function testLineAlgorithm() {
 		const startAlgo = Date.now()
 		const imageA = await loadImage(image1)
@@ -1104,6 +1106,7 @@ function App() {
 		imageData = ctx.getImageData(0, 0, width, height)
 		const { longestObject } = lineAlgorithm(imageData, true)
 		console.log(longestObject)
+		// @ts-ignore
 		const bitmap = await createImageBitmap(imageA)
 
 		console.log(`Time taken: ${Date.now() - startAlgo}`)
@@ -1132,12 +1135,12 @@ function App() {
 					<ModalOverlay />
 					<ModalContent>
 						<ModalHeader>{`Suggested Photos ${
-							imageBMP.current.length
+							imageJpeg.current.length
 						} / ${Math.floor((framesCaptured || 1) / 4)}`}</ModalHeader>
 						<ModalCloseButton />
 						<ModalBody>
 							<Stack spacing={5} id="suggestedFrames" width="100%">
-								{imageBMP.current.map(({ jpeg, longestObject }, i) => {
+								{imageJpeg.current.map(({ jpeg, longestObject }, i) => {
 									return (
 										<Flex key={`checkbox-${i}`}>
 											<Checkbox
@@ -1193,8 +1196,8 @@ function App() {
 							<Button
 								colorScheme="blue"
 								isDisabled={
-									imageBMP.current.length === 0 ||
-									!imageBMP.current.find(
+									imageJpeg.current.length === 0 ||
+									!imageJpeg.current.find(
 										(_, i) =>
 											checkedItems[i] === undefined || checkedItems[i] === true
 									)
@@ -1202,8 +1205,9 @@ function App() {
 								onClick={() => {
 									var canvas = document.getElementById("download")
 									// @ts-ignore
+									// @ts-ignore
 									var context = canvas.getContext("2d")
-									imageBMP.current.map(({ jpeg, date }, i) => {
+									imageJpeg.current.map(({ jpeg, date }, i) => {
 										if (checkedItems[i] == null || checkedItems[i] === true) {
 											var anchor = document.createElement("a")
 											anchor.href = jpeg
@@ -1224,10 +1228,10 @@ function App() {
 				<Flex align="center" width="100%">
 					<img src={logo} className="App-logo" alt="logo" />
 					<Heading fontSize="4xl" colorScheme="blue">
-						SSA 228.27
+						SSA 310.1
 					</Heading>
 				</Flex>
-				<Text color="InfoText" fontSize="sm">
+				<Text maxWidth="320px" color="InfoText" fontSize="sm">
 					{debugMessage}
 				</Text>
 				{/* <Button
@@ -1276,10 +1280,17 @@ function App() {
 				<Box
 					borderWidth="1px"
 					borderRadius="lg"
-					width="100%"
-					minHeight={Math.min(480 / 2, VIEW_WIDTH / 2)}
+					width="320px"
+					height={Math.min(320, VIEW_WIDTH)}
 				>
-					<video id="video-preview" autoPlay playsInline></video>
+					<Flex justify="center" width="100%">
+						<video
+							id="video-preview"
+							width="238px"
+							autoPlay
+							playsInline
+						></video>
+					</Flex>
 					<audio />
 					{isRecording ? (
 						<></>
@@ -1344,7 +1355,7 @@ function App() {
 						// @ts-ignore
 						onChange={({ target }) => {
 							onOpen()
-							console.log({ imageBMP })
+							console.log({ imageJpeg })
 							//@ts-ignore
 							setHasAlarm(target.value)
 						}}
@@ -1373,6 +1384,7 @@ function App() {
 				{isRecording ? (
 					<Button
 						mt="5px"
+						minWidth="320px"
 						colorScheme="blue"
 						variant="solid"
 						isDisabled={!isRecording}
@@ -1386,11 +1398,13 @@ function App() {
 					</Button>
 				) : (
 					<Flex direction="column">
-						<Button
+						{/* <Button
 							mt="5px"
 							colorScheme="blue"
 							variant="solid"
-							isDisabled={isRecording || !serviceWorkerActive}
+							isDisabled={isRecording 
+								//|| !serviceWorkerActive
+							}
 							onClick={(e) => {
 								startRecording(e, true, 10000)
 								setIsFinished(false)
@@ -1403,12 +1417,16 @@ function App() {
 							}}
 						>
 							Start Recording (Android Max)
-						</Button>
+						</Button> */}
 						<Button
 							mt="5px"
+							minWidth="320px"
 							colorScheme="blue"
 							variant="solid"
-							isDisabled={isRecording || !serviceWorkerActive}
+							isDisabled={
+								isRecording
+								//|| !serviceWorkerActive
+							}
 							onClick={(e) => {
 								startRecording(e, true, 1600)
 								setIsFinished(false)
@@ -1420,15 +1438,19 @@ function App() {
 								}
 							}}
 						>
-							Start Recording (Android 1600)
+							Start Recording
 						</Button>
 						<Button
 							mt="5px"
+							minWidth="320px"
 							colorScheme="blue"
 							variant="solid"
-							isDisabled={isRecording || !serviceWorkerActive}
+							isDisabled={
+								isRecording
+								//|| !serviceWorkerActive
+							}
 							onClick={(e) => {
-								startRecording(e, true, 100)
+								startRecording(e, true, 100, true)
 								setIsFinished(false)
 								if (selectedTimer === TIMER_VALUES.duration) {
 									setTimeout(() => {
@@ -1438,7 +1460,7 @@ function App() {
 								}
 							}}
 						>
-							Start Recording (Android 100)
+							Start Recording (iPhone Simulation)
 						</Button>
 						{/* <Button
 							mt="5px"
@@ -1467,9 +1489,9 @@ function App() {
 				>
 					Test compare Images
 				</Button> */}
-				{!serviceWorkerActive && <Text fontSize="sm">{`Starting up...`}</Text>}
+				{/* {!serviceWorkerActive && <Text fontSize="sm">{`Starting up...`}</Text>} */}
 				{framesCaptured !== null && (
-					<Text fontSize="sm">{`Photos taken: ${framesCaptured / 4}`}</Text>
+					<Text fontSize="sm">{`Photos taken: ${framesCaptured}`}</Text>
 				)}
 				{photosSaved !== null && (
 					<Text fontSize="sm">{`Photos saved: ${photosSaved}`}</Text>
@@ -1481,9 +1503,9 @@ function App() {
 					>{`Finished Recording Successfully`}</Text>
 				)}
 				<canvas id="download" height="0px"></canvas>
+				<canvas id="debug" height="800px" width="600px"></canvas>
 				{/* <canvas id="worker" height="0px"></canvas>
 			
-				<canvas id="debug" height="800px" width="600px"></canvas>
 				<img id="debugImg" height="4032px" width="3024px" />
 
 				<Flex justify="center" id="capturedFrames" w="100%">
