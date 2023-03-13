@@ -336,7 +336,6 @@ function lineAlgorithm(imageData, debug = false) {
 	return { longestObject }
 }
 
-
 function App() {
 	const VIEW_WIDTH = Math.max(
 		document.documentElement.clientWidth || 0,
@@ -380,6 +379,12 @@ function App() {
 	const offScreenCanvasLighter = useRef()
 	const offScreenCanvasDifference = useRef()
 	const offScreenCanvasFirestore = useRef()
+	const videoDimensions = useRef({
+		width: 0,
+		height: 0,
+		diffHeight: 0,
+		diffWidth: 0,
+	})
 	const exposureTime = useRef()
 
 	const isProcessing = useRef(false)
@@ -447,7 +452,7 @@ function App() {
 				facingMode: "environment",
 				width: { ideal: 3500 },
 				height: { ideal: 3500 },
-				resizeMode: {ideal: 'none'},
+				resizeMode: { ideal: "none" },
 				frameRate: { ideal: 10 },
 			},
 		}
@@ -476,19 +481,25 @@ function App() {
 		console.log("handleSuccess")
 		const stream = streamRef.current
 		const video = document.querySelector("#video-preview")
-		video.srcObject = stream
-	
 		// @ts-ignore
-		console.log({stream})
+		video.srcObject = stream
+
+		// @ts-ignore
+		console.log({ stream })
 		// @ts-ignore
 		const [track] = stream.getVideoTracks()
-		console.log({track})
+		console.log({ track })
 
 		document.createElement("canvas")
 
 		const capabilities = track.getCapabilities()
 		const settings = track.getSettings()
-	
+		videoDimensions.current = {
+			width: settings.width,
+			height: settings.height,
+			diffWidth: Math.floor(settings.width / 3),
+			diffHeight: Math.floor(settings.height / 3),
+		}
 		console.log("Capabilities: ", capabilities)
 		console.log("Settings: ", settings)
 		// Basic settings for all camera
@@ -612,13 +623,11 @@ function App() {
 				write: async (frame) => {
 					frameCount++
 					count++
-
 					if (frameCount === START_FRAME) {
 						console.log("START_FRAME")
-						const bitmap = await createImageBitmap(frame)
-						const diffWidth = Math.floor(bitmap.width / 3)
-						const diffHeight = Math.floor(bitmap.height / 3)
 						last = frame.timestamp
+						frame.close()
+
 						// @ts-ignore
 						// serviceWorker.postMessage(
 						// 	{
@@ -632,15 +641,18 @@ function App() {
 						//@ts-ignore
 						offScreenCanvasLighten.current = document.createElement("canvas")
 						// @ts-ignore
-						offScreenCanvasLighten.current.width = bitmap.width
+						offScreenCanvasLighten.current.width = videoDimensions.current.width
 						// @ts-ignore
-						offScreenCanvasLighten.current.height = bitmap.height
+						offScreenCanvasLighten.current.height =
+							videoDimensions.current.height
 						//@ts-ignore
 						offScreenCanvasDifference.current = document.createElement("canvas")
 						// @ts-ignore
-						offScreenCanvasDifference.current.width = diffWidth
+						offScreenCanvasDifference.current.width =
+							videoDimensions.current.diffWidth
 						// @ts-ignore
-						offScreenCanvasDifference.current.height = diffHeight
+						offScreenCanvasDifference.current.height =
+							videoDimensions.current.diffHeight
 						// offScreenCanvasDifference.current = new OffscreenCanvas(diffWidth, diffHeight)
 
 						// //@ts-ignore
@@ -660,27 +672,31 @@ function App() {
 							{ willReadFrequently: true }
 						)
 						differenceContext.globalCompositeOperation = "difference"
-						bitmap.close()
 
 						// firestoreContext = offScreenCanvasFirestore.current.getContext("2d")}
 
 						// 	// Startup frames
+						count++
 					} else if (
 						frameCount > START_FRAME &&
 						frame.timestamp > last &&
 						count % framesPerFourSeconds !== 0 &&
 						!isProcessing.current
 					) {
-						fullcount++
+						console.log("DRAW")
 						// @ts-ignore
 						let startAlgo = Date.now()
 						last = frame.timestamp
-						const bitmap = await createImageBitmap(frame)
+						const bitmap = frame
 						// bmpStack.current.push(bitmap)
-						// console.log({ differenceContext, lightenContext })
-						const diffWidth = Math.floor(bitmap.width / 3)
-						const diffHeight = Math.floor(bitmap.height / 3)
-						differenceContext.drawImage(bitmap, 0, 0, diffWidth, diffHeight)
+						console.log({ differenceContext, lightenContext })
+						differenceContext.drawImage(
+							bitmap,
+							0,
+							0,
+							videoDimensions.current.diffWidth,
+							videoDimensions.current.diffHeight
+						)
 						lightenContext.drawImage(bitmap, 0, 0)
 						bitmap.close()
 						console.log(`time taken =  ${Date.now() - startAlgo}`)
@@ -690,26 +706,23 @@ function App() {
 						count % framesPerFourSeconds === 0 &&
 						!isProcessing.current
 					) {
+						console.log("COUNT % FRAMECOUNT")
 						isProcessing.current = true
 						fullcount++
 
-						const bitmap = await createImageBitmap(frame)
+						const { width, height, diffWidth, diffHeight } =
+							videoDimensions.current
 
-						const width = bitmap.width
-						const height = bitmap.height
-						const diffWidth = Math.floor(width / 3)
-						const diffHeight = Math.floor(height / 3)
+						differenceContext.drawImage(frame, 0, 0, diffWidth, diffHeight)
+						lightenContext.drawImage(frame, 0, 0)
 
-						differenceContext.drawImage(bitmap, 0, 0, diffWidth, diffHeight)
-						lightenContext.drawImage(bitmap, 0, 0)
-
-						bitmap.close()
+						frame.close()
 
 						const date = new Date()
 						const lightenCanvas = offScreenCanvasLighten.current
 						// @ts-ignore
 						const differenceCanvas = offScreenCanvasDifference.current
-
+						// console.log(differenceContext)
 						const imageData = differenceContext.getImageData(
 							0,
 							0,
@@ -719,7 +732,7 @@ function App() {
 						const { longestObject } = lineAlgorithm(imageData)
 						console.log({ longestObject })
 						// Streak found, create final image
-						if (longestObject.size > 10 && longestObject.size < 500) {
+						if (longestObject.size > 5 && longestObject.size < 500) {
 							var zeroth = {}
 							let exif = {}
 							let gps = {}
@@ -805,9 +818,11 @@ function App() {
 							count = 0
 							isProcessing.current = false
 						}
+					} else {
+						last = frame.timestamp
+						frame.close()
 					}
-					last = frame.timestamp
-					frame.close()
+					// frame.close()
 					if (
 						frameCount > START_FRAME &&
 						frameCount % framesPerFourSeconds === 0
@@ -815,20 +830,26 @@ function App() {
 						const canvas = document.getElementById("debug")
 						// @ts-ignore
 						const ctx = canvas.getContext("2d", { willReadFrequently: true })
-						ctx.drawImage(offScreenCanvasLighten.current, 0, 0, 302, 403)
+						ctx.drawImage(offScreenCanvasLighten.current, 0, 0)
 						setFramesCaptured(
 							// @ts-ignore
 							Math.round((frameCount - START_FRAME) / framesPerFourSeconds)
 						)
+
+						const canvas2 = document.getElementById("debug2")
 						// @ts-ignore
-						setPhotosSaved(imageJpeg.current.length)
+						const ctx2 = canvas2.getContext("2d", { willReadFrequently: true })
+						ctx2.drawImage(offScreenCanvasDifference.current, 0, 0)
 					}
 					// @ts-ignore
+					setPhotosSaved(imageJpeg.current.length)
 
-					// 	// } else {
-					// 	// 	imageJpeg.current.push(bitmap)
-					// 	// 	console.log(`${last} pushed image`)
-					// 	// }
+					// @ts-ignore
+
+					// } else {
+					// 	imageJpeg.current.push(bitmap)
+					// 	console.log(`${last} pushed image`)
+					// }
 
 					// console.log(`Time taken: ${Date.now() - startAlgo}`)
 					// browser only seems to let you have 3 frames open
@@ -1134,9 +1155,7 @@ function App() {
 				>
 					<ModalOverlay />
 					<ModalContent>
-						<ModalHeader>{`Suggested Photos ${
-							imageJpeg.current.length
-						} / ${Math.floor((framesCaptured || 1) / 4)}`}</ModalHeader>
+						<ModalHeader>{`Suggested Photos ${imageJpeg.current.length} / ${framesCaptured}`}</ModalHeader>
 						<ModalCloseButton />
 						<ModalBody>
 							<Stack spacing={5} id="suggestedFrames" width="100%">
@@ -1228,7 +1247,7 @@ function App() {
 				<Flex align="center" width="100%">
 					<img src={logo} className="App-logo" alt="logo" />
 					<Heading fontSize="4xl" colorScheme="blue">
-						SSA 310.1
+						SSA 313.1
 					</Heading>
 				</Flex>
 				<Text maxWidth="320px" color="InfoText" fontSize="sm">
@@ -1503,14 +1522,16 @@ function App() {
 					>{`Finished Recording Successfully`}</Text>
 				)}
 				<canvas id="download" height="0px"></canvas>
-				<canvas id="debug" height="800px" width="600px"></canvas>
+
+				<Flex justify="center" id="capturedFrames" w="100%">
+					<canvas id="debug" height="600px" width="600px"></canvas>
+					<canvas id="debug2" height="600px" width="600px"></canvas>
+				</Flex>
 				{/* <canvas id="worker" height="0px"></canvas>
 			
 				<img id="debugImg" height="4032px" width="3024px" />
 
-				<Flex justify="center" id="capturedFrames" w="100%">
-					<canvas id="debug2" height="800px" width="600px"></canvas>
-				</Flex>
+			
 				<Flex direction="column" id="capturedFrames" w="480px"></Flex> */}
 			</header>
 		</div>
