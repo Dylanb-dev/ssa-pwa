@@ -1,7 +1,7 @@
 {
   "files": {
-    "main.css": "/ssa-pwa/static/css/main.fa621b42.css",
-    "main.js": "/ssa-pwa/static/js/main.fe88a11b.js",
+    "main.css": "/ssa-pwa/static/css/main.3eeaa151.css",
+    "main.js": "/ssa-pwa/static/js/main.174ccc15.js",
     "static/js/787.359316be.chunk.js": "/ssa-pwa/static/js/787.359316be.chunk.js",
     "static/media/matt2.jpeg": "/ssa-pwa/static/media/matt2.52a7d614c6b49b55be05.jpeg",
     "static/media/matt1.jpeg": "/ssa-pwa/static/media/matt1.78b065f3435e998262cf.jpeg",
@@ -16,18 +16,26 @@
     "static/media/7.jpeg": "/ssa-pwa/static/media/7.6d7d7ef15239e1f8f7a4.jpeg",
     "static/media/5.jpeg": "/ssa-pwa/static/media/5.206d3f4dd7ff3d297ccd.jpeg",
     "static/media/8.jpeg": "/ssa-pwa/static/media/8.b3b946d35436575fc599.jpeg",
-    "static/media/logo.jpg": "/ssa-pwa/static/media/logo.76ed0880084ca949380f.jpg",
+    "static/media/logo.jpg": "/ssa-pwa/static/media/logo.fafebd993c895827d2f9.jpg",
     "service-worker.js": "/ssa-pwa/service-worker.js",
     "static/media/ding.mp3": "/ssa-pwa/static/media/ding.82573fd258e15b76f833.mp3",
     "static/media/test3.png": "/ssa-pwa/static/media/test3.804517e03dad60cd35fb.png",
     "static/media/line2.png": "/ssa-pwa/static/media/line2.f88bd7181d37d234560c.png",
+    "static/media/settings.svg": "/ssa-pwa/static/media/settings.b67e8c7200a6219362e83ab851a287bd.svg",
+    "static/media/upload-photo.svg": "/ssa-pwa/static/media/upload-photo.8cca023817b57d4725a70e3b89e9f26b.svg",
+    "static/media/bell-off.svg": "/ssa-pwa/static/media/bell-off.e87ac521eab784e1fe506ae3559cc847.svg",
+    "static/media/bell-ringing.svg": "/ssa-pwa/static/media/bell-ringing.778c6caf99cdfcee2f5a92c01a724d89.svg",
+    "static/media/pictures.svg": "/ssa-pwa/static/media/pictures.f3641e5f65961357a40750d3503e59b9.svg",
     "index.html": "/ssa-pwa/index.html",
-    "main.fa621b42.css.map": "/ssa-pwa/static/css/main.fa621b42.css.map",
-    "main.fe88a11b.js.map": "/ssa-pwa/static/js/main.fe88a11b.js.map",
+    "static/media/ic_shutter_normal.svg": "/ssa-pwa/static/media/ic_shutter_normal.034398961385a52d0c28491211551604.svg",
+    "static/media/ic_shutter_pressed.svg": "/ssa-pwa/static/media/ic_shutter_pressed.a732bbb27cd980d35ec6c1c7e363b3ff.svg",
+    "static/media/ic_shutter_recording.svg": "/ssa-pwa/static/media/ic_shutter_recording.124cc3437053c1868667c516ed1f3fdd.svg",
+    "main.3eeaa151.css.map": "/ssa-pwa/static/css/main.3eeaa151.css.map",
+    "main.174ccc15.js.map": "/ssa-pwa/static/js/main.174ccc15.js.map",
     "787.359316be.chunk.js.map": "/ssa-pwa/static/js/787.359316be.chunk.js.map"
   },
   "entrypoints": [
-    "static/css/main.fa621b42.css",
-    "static/js/main.fe88a11b.js"
+    "static/css/main.3eeaa151.css",
+    "static/js/main.174ccc15.js"
   ]
 }
