@@ -1304,7 +1304,7 @@ function App() {
 								>
 									5 second timer before start
 								</FormLabel>
-								<Switch id="countdown" defaultChecked />
+								<Switch id="countdown" isChecked={hasCountdown} />
 							</FormControl>
 						</ModalBody>
 						<ModalFooter>
@@ -1345,7 +1345,7 @@ function App() {
 								<FormLabel htmlFor="alarm" mb="0">
 									Alarm when finished
 								</FormLabel>
-								<Switch id="alarm" defaultChecked />
+								<Switch id="alarm" isChecked={hasAlarm} />
 							</FormControl>
 							<FormControl
 								display="flex"
@@ -1361,7 +1361,7 @@ function App() {
 								<FormLabel htmlFor="alarm" mb="0">
 									Alarm when satellite detected
 								</FormLabel>
-								<Switch id="alarm" defaultChecked />
+								<Switch id="alarm" isChecked={hasDetectionAlarm} />
 							</FormControl>
 						</ModalBody>
 						<ModalFooter>
@@ -1381,14 +1381,14 @@ function App() {
 					<img src={logo} className="App-logo" alt="logo" />
 					<Flex direction="column">
 						<Heading fontSize="2xl">SatTrack</Heading>
-						<Text fontSize="10px">v322.1</Text>
+						<Text fontSize="10px">v322.2</Text>
 					</Flex>
 					<Text maxWidth="320px" color="InfoText" fontSize="sm">
 						{debugMessage}
 					</Text>
 				</Flex>
 				{showWebsite ? (
-					<Box height="calc(100vh - 160px)">
+					<Box height="calc(100vh - 160px)" width="100vw">
 						<iframe
 							style={{
 								transform: "scale(0.8)",
