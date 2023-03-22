@@ -1,11 +1,17 @@
 body {
   margin: 0;
+  padding: 0;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   width: 100vw;
+  background:  black !important;
+  display:flex;
+  justify-content: center;
+  height: 100vh;
+  overflow:hidden;
 }
 
 code {
@@ -14,30 +20,37 @@ code {
 }
 
 h1,h2,h3 {
-  color:#3182ce;
+  color: white;
 }
 
 p {
-  color: #3182ce;
+  color: white;
 }
 
 #root {
   display: flex;
   justify-content: center;
-  max-width: 100vw;
+  width: 100vw;
+  margin: 0;
+  padding: 0;
 }
 
 .App {
   flex-direction: column;
   text-align: center;
+  width: 100vw;
   max-width: 480px;
-  padding: 16px;
+
   width: 100%;
+  height: 100vh;
+}
+@media only screen and (max-width: 600px) {
+  .App { max-width: 100vw; }
 }
 
 .App-logo {
-  height: 64px;
-  width: 64px;
+  height: 48px;
+  width: 48px;
   pointer-events: none;
   margin-bottom: 12px;
   margin-right: 8px;

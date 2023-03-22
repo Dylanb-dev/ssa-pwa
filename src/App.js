@@ -53,7 +53,7 @@ import { compareImages } from "./compareImages"
 import { format } from "date-fns"
 
 import piexif from "./piexifjs"
-
+import { createIcon } from "@chakra-ui/icons"
 import {
 	Modal,
 	ModalOverlay,
@@ -81,10 +81,21 @@ import {
 	FormControl,
 	FormLabel,
 	Switch,
+	IconButton,
 } from "@chakra-ui/react"
 // @ts-ignore
 import { getStorage, ref, uploadString } from "firebase/storage"
 import { initializeApp } from "firebase/app"
+
+import { ReactComponent as BellOff } from "./icons/bell-off.svg"
+import { ReactComponent as BellRinging } from "./icons/bell-ringing.svg"
+import { ReactComponent as Pictures } from "./icons/pictures.svg"
+import { ReactComponent as Settings } from "./icons/settings.svg"
+import { ReactComponent as UploadPhoto } from "./icons/upload-photo.svg"
+
+import { ReactComponent as Shutter } from "./shutter/ic_shutter_normal.svg"
+import { ReactComponent as ShutterPressed } from "./shutter/ic_shutter_pressed.svg"
+import { ReactComponent as ShutterRecording } from "./shutter/ic_shutter_recording.svg"
 
 const firebaseConfig = {
 	apiKey: "AIzaSyBYAQRyqjZ-vjXT1FikWjmVNDpHe4tiyJs",
@@ -336,6 +347,8 @@ function lineAlgorithm(imageData, debug = false) {
 	return { longestObject }
 }
 
+// const UploadIcon = createIcon(UploadPhoto)
+
 function App() {
 	const VIEW_WIDTH = Math.max(
 		document.documentElement.clientWidth || 0,
@@ -347,6 +360,7 @@ function App() {
 		until_stopped: "Until stopped",
 	}
 	const DOWNSAMPLE = 3
+	const dingSound = new Audio(sound)
 
 	const [isRecording, setIsRecording] = useState(false)
 
@@ -354,20 +368,35 @@ function App() {
 	const [selectedTimer, setSelectedTimer] = useState(TIMER_VALUES.duration)
 	const [duration, setDuration] = useState(600)
 	const [numberOfImages, setNumberOfImages] = useState(5)
+	const [hasPreview, setHasPreview] = useState(false)
 	// @ts-ignore
 	const [serviceWorkerActive, setServiceWorkerActive] = useState(false)
 
 	const [hasAlarm, setHasAlarm] = useState(true)
+	const [hasDetectionAlarm, setHasDetectionAlarm] = useState(false)
 	// @ts-ignore
 	// @ts-ignore
 	const [hasCountdown, setHasCountdown] = useState(true)
-	const [debugMessage, setDebugMessage] = useState("")
-	const [framesCaptured, setFramesCaptured] = useState(null)
-	const [photosSaved, setPhotosSaved] = useState(null)
-
+	const [debugMessage, setDebugMessage] = useState(" ")
+	const [framesCaptured, setFramesCaptured] = useState(0)
+	const [photosSaved, setPhotosSaved] = useState(0)
+	const [showWebsite, setShowWebsite] = useState(false)
 	const [checkedItems, setCheckedItems] = React.useState({})
-
-	const { isOpen, onOpen, onClose } = useDisclosure()
+	const {
+		isOpen: isGalleryOpen,
+		onOpen: onOpenGallery,
+		onClose: onCloseGallery,
+	} = useDisclosure()
+	const {
+		isOpen: isSettingsOpen,
+		onOpen: onOpenSettings,
+		onClose: onCloseSettings,
+	} = useDisclosure()
+	const {
+		isOpen: isAlarmOpen,
+		onOpen: onOpenAlarm,
+		onClose: onCloseAlarm,
+	} = useDisclosure()
 
 	const streamRef = useRef()
 	const imageJpeg = useRef([])
@@ -408,7 +437,6 @@ function App() {
 	// 	differenceCanvas
 	// )
 	// Recieve a sequence of images, return possible streak 4s lighten image with exif data
-	const dingSound = new Audio(sound)
 	console.log("render")
 	// useEffect(() => {
 	// 	setServiceWorkerActive(true)
@@ -436,14 +464,8 @@ function App() {
 	// 	// }
 	// }, [])
 
-	async function startRecording(
-		// @ts-ignore
-		e,
-		isAndroid = false,
-		iso = 1000,
-		test = false
-	) {
-		setIsRecording(true)
+	async function startCamera() {
+		setHasPreview(true)
 		setDebugMessage("")
 		const constraints = {
 			audio: false,
@@ -451,7 +473,7 @@ function App() {
 			video: {
 				facingMode: "environment",
 				width: { ideal: 3500 },
-				height: { ideal: 3500 },
+				height: { ideal: 4500 },
 				resizeMode: { ideal: "none" },
 				frameRate: { ideal: 10 },
 			},
@@ -461,20 +483,20 @@ function App() {
 			const stream = await navigator.mediaDevices.getUserMedia(constraints)
 			// @ts-ignore
 			streamRef.current = stream
-			handleSuccess(isAndroid, iso, test)
+			handleSuccess()
 		} catch (e) {
 			setIsRecording(false)
 			console.error(e)
 		}
 	}
 
-	async function handleSuccess(
-		// @ts-ignore
-		isAndroid = false,
-		// @ts-ignore
-		defaultIso = 1000,
-		test = false
-	) {
+	useEffect(() => {
+		startCamera()
+	}, [])
+
+	async function handleSuccess() {
+		setHasPreview(true)
+
 		// @ts-ignore
 		console.log(streamRef.current)
 		imageJpeg.current = []
@@ -485,28 +507,20 @@ function App() {
 		video.srcObject = stream
 
 		// @ts-ignore
-		console.log({ stream })
-		// @ts-ignore
 		const [track] = stream.getVideoTracks()
 		console.log({ track })
 
-		document.createElement("canvas")
-
 		const capabilities = track.getCapabilities()
 		const settings = track.getSettings()
+
 		videoDimensions.current = {
 			width: settings.width,
 			height: settings.height,
 			diffWidth: Math.floor(settings.width / 3),
 			diffHeight: Math.floor(settings.height / 3),
 		}
-		console.log("Capabilities: ", capabilities)
-		console.log("Settings: ", settings)
-		// Basic settings for all camera
-		// setDebugMessage(JSON.stringify({capabilities, settings}))
-		// Set exposure time and iso off camera settings
+
 		if (
-			!test &&
 			capabilities.focusMode &&
 			capabilities.focusDistance &&
 			capabilities.zoom &&
@@ -517,27 +531,16 @@ function App() {
 			capabilities.colorTemperature
 		) {
 			let maxExposure = capabilities.exposureTime.max
-			let iso
-			if (maxExposure > 40000) {
-				// @ts-ignore
-				exposureTime.current = 40000
-				iso = 400
-			} else if (maxExposure >= 20000) {
-				// @ts-ignore
-				exposureTime.current = 20000
-				iso = 800
-			} else if (maxExposure >= 10000) {
-				// @ts-ignore
-				exposureTime.current = 10000
-				iso = 1600
-			} else if (maxExposure >= 5000) {
+			let iso = capabilities.iso.min
+
+			if (maxExposure >= 5000) {
 				// @ts-ignore
 				exposureTime.current = 5000
-				iso = Math.min(3200, capabilities.iso.max)
+				iso = Math.min(1600, capabilities.iso.max)
 			} else if (maxExposure >= 1000) {
 				// @ts-ignore
 				exposureTime.current = 1000
-				iso = Math.min(6400, capabilities.iso.max)
+				iso = Math.min(1600, capabilities.iso.max)
 			}
 			await track.applyConstraints({
 				advanced: [
@@ -545,6 +548,7 @@ function App() {
 						exposureMode: "manual",
 						whiteBalanceMode: "manual",
 						focusMode: "manual",
+						iso: Math.min(iso, capabilities.iso.max),
 						colorTemperature: Math.max(3000, capabilities.colorTemperature.min),
 					},
 				],
@@ -556,11 +560,10 @@ function App() {
 						zoom: capabilities.zoom.min,
 						focusDistance: capabilities.focusDistance.max,
 						// @ts-ignore
-						iso: Math.min(iso, capabilities.iso.max),
 					},
 				],
 			})
-		} else if (test && capabilities.exposureMode) {
+		} else if (capabilities.exposureMode) {
 			console.log("test")
 			// @ts-ignore
 			exposureTime.current = 1000
@@ -582,6 +585,18 @@ function App() {
 			// @ts-ignore
 			exposureTime.current = 1000
 		}
+	}
+
+	async function startRecording() {
+		setIsRecording(true)
+		const stream = streamRef.current
+		// @ts-ignore
+		console.log({ stream })
+		// @ts-ignore
+		const [track] = stream.getVideoTracks()
+		console.log({ track })
+
+		document.createElement("canvas")
 
 		setTimeout(() => {
 			const settings = track.getSettings()
@@ -599,7 +614,7 @@ function App() {
 
 		// vars to control our read loop
 		// @ts-ignore
-		let framesPerFourSeconds = Math.floor(40000 / exposureTime.current)
+		let framesPerFourSeconds = Math.round(40000 / exposureTime.current)
 		let fullcount = 0
 		let last
 		let frameCount = 0
@@ -614,13 +629,13 @@ function App() {
 		// @ts-ignore
 		let firestoreContext
 		const START_FRAME = 5
-
+		let frameRecorded = 0
 		let count = -START_FRAME - 1
 		// const sw = await navigator.serviceWorker.ready
 		// const serviceWorker = sw.active
 		const writableStream = new WritableStream(
 			{
-				write: async (frame) => {
+				write: (frame) => {
 					frameCount++
 					count++
 					if (frameCount === START_FRAME) {
@@ -709,7 +724,8 @@ function App() {
 						console.log("COUNT % FRAMECOUNT")
 						isProcessing.current = true
 						fullcount++
-
+						frameRecorded++
+						setFramesCaptured(frameRecorded)
 						const { width, height, diffWidth, diffHeight } =
 							videoDimensions.current
 
@@ -733,6 +749,11 @@ function App() {
 						console.log({ longestObject })
 						// Streak found, create final image
 						if (longestObject.size > 5 && longestObject.size < 500) {
+							setPhotosSaved(imageJpeg.current.length)
+
+							if (hasDetectionAlarm) {
+								dingSound.play()
+							}
 							var zeroth = {}
 							let exif = {}
 							let gps = {}
@@ -754,7 +775,8 @@ function App() {
 							var exifbytes = piexif.dump(exifObj)
 
 							//@ts-ignore
-
+							setPhotosSaved(imageJpeg.current.length)
+							//@ts-ignore
 							lightenCanvas.toBlob(
 								(blob) => {
 									var reader = new FileReader()
@@ -822,38 +844,7 @@ function App() {
 						last = frame.timestamp
 						frame.close()
 					}
-					// frame.close()
-					if (
-						frameCount > START_FRAME &&
-						frameCount % framesPerFourSeconds === 0
-					) {
-						const canvas = document.getElementById("debug")
-						// @ts-ignore
-						const ctx = canvas.getContext("2d", { willReadFrequently: true })
-						ctx.drawImage(offScreenCanvasLighten.current, 0, 0)
-						setFramesCaptured(
-							// @ts-ignore
-							Math.round((frameCount - START_FRAME) / framesPerFourSeconds)
-						)
-
-						const canvas2 = document.getElementById("debug2")
-						// @ts-ignore
-						const ctx2 = canvas2.getContext("2d", { willReadFrequently: true })
-						ctx2.drawImage(offScreenCanvasDifference.current, 0, 0)
-					}
 					// @ts-ignore
-					setPhotosSaved(imageJpeg.current.length)
-
-					// @ts-ignore
-
-					// } else {
-					// 	imageJpeg.current.push(bitmap)
-					// 	console.log(`${last} pushed image`)
-					// }
-
-					// console.log(`Time taken: ${Date.now() - startAlgo}`)
-					// browser only seems to let you have 3 frames open
-					// setTimeout(() => frame.close(), 500)
 				},
 				close: () => console.log("stream closed"),
 				abort: () => console.log("stream aborted"),
@@ -876,8 +867,6 @@ function App() {
 			track.stop()
 		})
 		setIsRecording(false)
-		onOpen()
-		sleep(1000)
 		setIsFinished(true)
 	}
 
@@ -1131,17 +1120,17 @@ function App() {
 		const bitmap = await createImageBitmap(imageA)
 
 		console.log(`Time taken: ${Date.now() - startAlgo}`)
-		onOpen()
+		onOpenGallery()
 	}
 
 	return (
 		<div className="App">
 			<header className="App-header">
 				<Modal
-					isOpen={isOpen}
+					isOpen={isGalleryOpen}
 					scrollBehavior="inside"
 					onClose={() => {
-						onClose()
+						onCloseGallery()
 						var canvas = document.getElementById("download")
 						// @ts-ignore
 						var context = canvas.getContext("2d")
@@ -1197,7 +1186,7 @@ function App() {
 							<Button
 								variant="ghost"
 								onClick={() => {
-									onClose()
+									onCloseGallery()
 									var canvas = document.getElementById("download")
 									// @ts-ignore
 									var context = canvas.getContext("2d")
@@ -1244,289 +1233,319 @@ function App() {
 						</ModalFooter>
 					</ModalContent>
 				</Modal>
-				<Flex align="center" width="100%">
+				<Modal
+					isOpen={isSettingsOpen}
+					onClose={() => {
+						onCloseSettings()
+					}}
+				>
+					<ModalOverlay />
+					<ModalContent>
+						<ModalHeader>{`Adjust Capture Settings`}</ModalHeader>
+						<ModalCloseButton />
+						<ModalBody>
+							<HStack {...group} p="4px">
+								{options.map((value) => {
+									const radio = getRadioProps({ value })
+									return (
+										<RadioCard key={value} {...radio}>
+											{value}
+										</RadioCard>
+									)
+								})}
+							</HStack>
+							{selectedTimer === TIMER_VALUES.duration && (
+								<NumberInput
+									my="8px"
+									step={5}
+									size="lg"
+									defaultValue={duration}
+									min={10}
+									max={1000}
+									w="100%"
+									color="blackAlpha.600"
+									// @ts-ignore
+									onChange={(e) => setDuration(e)}
+								>
+									<NumberInputField />
+									<NumberInputStepper>
+										<NumberIncrementStepper />
+										<NumberDecrementStepper />
+									</NumberInputStepper>
+								</NumberInput>
+							)}
+							{selectedTimer === TIMER_VALUES.image_limit && (
+								<NumberInput
+									my="8px"
+									step={5}
+									size="lg"
+									defaultValue={numberOfImages}
+									min={5}
+									max={1000}
+									w="100%"
+									color="blackAlpha.600"
+									onChange={(e) => setNumberOfImages(Number(e))}
+								>
+									<NumberInputField />
+									<NumberInputStepper>
+										<NumberIncrementStepper />
+										<NumberDecrementStepper />
+									</NumberInputStepper>
+								</NumberInput>
+							)}
+							<FormControl display="flex" alignItems="center">
+								<FormLabel
+									htmlFor="countdown"
+									mb="0"
+									color="#2D3748"
+									// @ts-ignore
+									onChange={({ target }) => setHasCountdown(target.value)}
+									my="8px"
+								>
+									5 second timer before start
+								</FormLabel>
+								<Switch id="countdown" defaultChecked />
+							</FormControl>
+						</ModalBody>
+						<ModalFooter>
+							<Button
+								variant="ghost"
+								onClick={() => {
+									onCloseSettings()
+								}}
+								mr={3}
+							>
+								Close
+							</Button>
+						</ModalFooter>
+					</ModalContent>
+				</Modal>
+				<Modal
+					isOpen={isAlarmOpen}
+					onClose={() => {
+						onCloseAlarm()
+					}}
+				>
+					<ModalOverlay />
+					<ModalContent>
+						<ModalHeader>{`Adjust Alarm`}</ModalHeader>
+						<ModalCloseButton />
+						<ModalBody>
+							<FormControl
+								display="flex"
+								alignItems="center"
+								color="#2D3748"
+								// @ts-ignore
+								onChange={({ target }) => {
+									//@ts-ignore
+									setHasAlarm(target.value)
+								}}
+								my="8px"
+							>
+								<FormLabel htmlFor="alarm" mb="0">
+									Alarm when finished
+								</FormLabel>
+								<Switch id="alarm" defaultChecked />
+							</FormControl>
+							<FormControl
+								display="flex"
+								alignItems="center"
+								color="#2D3748"
+								// @ts-ignore
+								onChange={({ target }) => {
+									//@ts-ignore
+									setHasDetectionAlarm(target.value)
+								}}
+								my="8px"
+							>
+								<FormLabel htmlFor="alarm" mb="0">
+									Alarm when satellite detected
+								</FormLabel>
+								<Switch id="alarm" defaultChecked />
+							</FormControl>
+						</ModalBody>
+						<ModalFooter>
+							<Button
+								variant="ghost"
+								onClick={() => {
+									onCloseAlarm()
+								}}
+								mr={3}
+							>
+								Close
+							</Button>
+						</ModalFooter>
+					</ModalContent>
+				</Modal>
+				<Flex align="center" width="100%" height="64px" px="8px">
 					<img src={logo} className="App-logo" alt="logo" />
-					<Heading fontSize="4xl" colorScheme="blue">
-						SSA 313.1
-					</Heading>
-				</Flex>
-				<Text maxWidth="320px" color="InfoText" fontSize="sm">
-					{debugMessage}
-				</Text>
-				{/* <Button
-					colorScheme="blue"
-					onClick={() => {
-						const imageA = new Image()
-						const imageB = new Image()
-
-						let imageABitmap
-						let imageBBitmap
-
-						// Wait for the sprite sheet to load
-						imageA.onload = async () => {
-							const bitmap = await createImageBitmap(imageA)
-							imageABitmap = bitmap
-							console.log({ bitmap })
-							if (imageABitmap && imageBBitmap) {
-								let res = compareImages(imageABitmap, imageBBitmap, true)
-								if (res.result) {
-									setDebugMessage(`Passed image comparison test ${res.score}`)
-								} else {
-									setDebugMessage("Failed image comparison test")
-								}
-							}
-						}
-						imageA.src = image1
-
-						imageB.onload = async () => {
-							const bitmap = await createImageBitmap(imageB)
-							imageBBitmap = bitmap
-							console.log({ bitmap })
-							if (imageABitmap && imageBBitmap) {
-								let res = compareImages(imageABitmap, imageBBitmap, true)
-								if (res) {
-									setDebugMessage("Passed image comparison test")
-								} else {
-									setDebugMessage("Failed image comparison test")
-								}
-							}
-						}
-						imageB.src = image2
-					}}
-				>
-					Test Compare Images
-				</Button> */}
-				<Box
-					borderWidth="1px"
-					borderRadius="lg"
-					width="320px"
-					height={Math.min(320, VIEW_WIDTH)}
-				>
-					<Flex justify="center" width="100%">
-						<video
-							id="video-preview"
-							width="238px"
-							autoPlay
-							playsInline
-						></video>
-					</Flex>
-					<audio />
-					{isRecording ? (
-						<></>
-					) : (
-						<Text colorScheme="blue">Image preview here</Text>
-					)}
-				</Box>
-				<HStack {...group} p="4px">
-					{options.map((value) => {
-						const radio = getRadioProps({ value })
-						return (
-							<RadioCard key={value} {...radio}>
-								{value}
-							</RadioCard>
-						)
-					})}
-				</HStack>
-				{selectedTimer === TIMER_VALUES.duration && (
-					<NumberInput
-						my="8px"
-						step={5}
-						size="lg"
-						defaultValue={duration}
-						min={10}
-						max={1000}
-						w="100%"
-						color="blackAlpha.600"
-						// @ts-ignore
-						onChange={(e) => setDuration(e)}
-					>
-						<NumberInputField />
-						<NumberInputStepper>
-							<NumberIncrementStepper />
-							<NumberDecrementStepper />
-						</NumberInputStepper>
-					</NumberInput>
-				)}
-				{selectedTimer === TIMER_VALUES.image_limit && (
-					<NumberInput
-						my="8px"
-						step={5}
-						size="lg"
-						defaultValue={numberOfImages}
-						min={5}
-						max={1000}
-						w="100%"
-						color="blackAlpha.600"
-						onChange={(e) => setNumberOfImages(Number(e))}
-					>
-						<NumberInputField />
-						<NumberInputStepper>
-							<NumberIncrementStepper />
-							<NumberDecrementStepper />
-						</NumberInputStepper>
-					</NumberInput>
-				)}
-				{selectedTimer !== TIMER_VALUES.until_stopped && (
-					<FormControl
-						display="flex"
-						alignItems="center"
-						color="#2D3748"
-						// @ts-ignore
-						onChange={({ target }) => {
-							onOpen()
-							console.log({ imageJpeg })
-							//@ts-ignore
-							setHasAlarm(target.value)
-						}}
-						my="8px"
-					>
-						<FormLabel htmlFor="alarm" mb="0">
-							Alarm when finished
-						</FormLabel>
-						<Switch id="alarm" defaultChecked isDisabled />
-					</FormControl>
-				)}
-				<FormControl display="flex" alignItems="center">
-					<FormLabel
-						htmlFor="countdown"
-						mb="0"
-						color="#2D3748"
-						// @ts-ignore
-						onChange={({ target }) => setHasCountdown(target.value)}
-						my="8px"
-					>
-						5 second timer before start
-					</FormLabel>
-					<Switch id="countdown" defaultChecked isDisabled />
-				</FormControl>
-
-				{isRecording ? (
-					<Button
-						mt="5px"
-						minWidth="320px"
-						colorScheme="blue"
-						variant="solid"
-						isDisabled={!isRecording}
-						onClick={(e) => {
-							setIsFinished(false)
-							// @ts-ignore
-							stopStreamedVideo(e)
-						}}
-					>
-						Stop Recording
-					</Button>
-				) : (
 					<Flex direction="column">
-						{/* <Button
-							mt="5px"
-							colorScheme="blue"
-							variant="solid"
-							isDisabled={isRecording 
-								//|| !serviceWorkerActive
-							}
-							onClick={(e) => {
-								startRecording(e, true, 10000)
-								setIsFinished(false)
-								if (selectedTimer === TIMER_VALUES.duration) {
-									setTimeout(() => {
-										dingSound.play()
-										stopStreamedVideo()
-									}, (duration + 5) * 1000)
-								}
+						<Heading fontSize="2xl">SatTrack</Heading>
+						<Text fontSize="10px">v322.1</Text>
+					</Flex>
+					<Text maxWidth="320px" color="InfoText" fontSize="sm">
+						{debugMessage}
+					</Text>
+				</Flex>
+				{showWebsite ? (
+					<Box height="calc(100vh - 160px)">
+						<iframe
+							style={{
+								transform: "scale(0.8)",
+								transformOrigin: "0 0",
 							}}
-						>
-							Start Recording (Android Max)
-						</Button> */}
-						<Button
-							mt="5px"
-							minWidth="320px"
-							colorScheme="blue"
-							variant="solid"
-							isDisabled={
-								isRecording
-								//|| !serviceWorkerActive
-							}
-							onClick={(e) => {
-								startRecording(e, true, 1600)
-								setIsFinished(false)
-								if (selectedTimer === TIMER_VALUES.duration) {
-									setTimeout(() => {
-										dingSound.play()
-										stopStreamedVideo()
-									}, (duration + 5) * 1000)
-								}
-							}}
-						>
-							Start Recording
-						</Button>
-						<Button
-							mt="5px"
-							minWidth="320px"
-							colorScheme="blue"
-							variant="solid"
-							isDisabled={
-								isRecording
-								//|| !serviceWorkerActive
-							}
-							onClick={(e) => {
-								startRecording(e, true, 100, true)
-								setIsFinished(false)
-								if (selectedTimer === TIMER_VALUES.duration) {
-									setTimeout(() => {
-										dingSound.play()
-										stopStreamedVideo()
-									}, (duration + 5) * 1000)
-								}
-							}}
-						>
-							Start Recording (iPhone Simulation)
-						</Button>
-						{/* <Button
-							mt="5px"
-							ml="5px"
-							colorScheme="blue"
-							variant="solid"
-							isDisabled={isRecording || !serviceWorkerActive}
-							// @ts-ignore
-							onClick={(e) => {
-								testLineAlgorithm()
-							}}
-						>
-							Test line Detection
-						</Button> */}
+							className="frame"
+							height="125%"
+							width="125%"
+							src="https://d1e7enq0s1epae.cloudfront.net/"
+						/>
+					</Box>
+				) : (
+					<Flex
+						direction="column"
+						justify="center"
+						width="100%"
+						height="calc(100vh - 160px)"
+					>
+						<Flex justify="center" width="100%">
+							<video
+								id="video-preview"
+								width="100%"
+								autoPlay
+								playsInline
+							></video>
+						</Flex>
+						<audio />
+						{hasPreview ? (
+							<></>
+						) : (
+							<Text colorScheme="blue">Image preview here</Text>
+						)}
 					</Flex>
 				)}
-				{/* <Button
-					mt="5px"
-					colorScheme="blue"
-					variant="solid"
-					onClick={(e) => {
-						e.preventDefault()
-						// lighterImageStackTest()
-						testCompareImages()
-					}}
+				<Flex
+					height="16px"
+					align="center"
+					justify="space-around"
+					width="100%00"
 				>
-					Test compare Images
-				</Button> */}
+					<Text height="16px" fontSize="sm" mr="16px">{`Exp 4s. ISO1600`}</Text>
+					<Text
+						height="16px"
+						fontSize="sm"
+					>{`Photos taken: ${photosSaved} / ${framesCaptured}`}</Text>
+				</Flex>
+				<Flex
+					align="center"
+					width="100%"
+					height="80px"
+					justify="space-between"
+					mx="8px"
+				>
+					<IconButton
+						aria-label="Show website for image analysis"
+						width="64px"
+						height="64px"
+						variant={"solid"}
+						backgroundColor="transparent"
+						onClick={(e) => {
+							e.preventDefault()
+							if (showWebsite) {
+								setShowWebsite(false)
+								startCamera()
+							} else {
+								stopStreamedVideo()
+								setShowWebsite(true)
+							}
+						}}
+						icon={<UploadPhoto />}
+					/>
+					<IconButton
+						aria-label="Open Gallery of captured images"
+						width="64px"
+						height="64px"
+						variant={"solid"}
+						backgroundColor="transparent"
+						onClick={(e) => {
+							e.preventDefault()
+							onOpenGallery()
+						}}
+						icon={<Pictures />}
+					/>
+
+					<IconButton
+						aria-label="Take photos"
+						width="88px"
+						height="88px"
+						variant={"solid"}
+						backgroundColor="transparent"
+						onClick={(e) => {
+							e.preventDefault()
+							let photoTimeOut
+							if (isRecording) {
+								stopStreamedVideo()
+								//@ts-ignore
+								if (photoTimeOut && photoTimeOut.clear) {
+									//@ts-ignore
+									photoTimeOut.clear()
+								}
+							} else {
+								startRecording()
+								setIsFinished(false)
+								if (selectedTimer === TIMER_VALUES.duration) {
+									photoTimeOut = setTimeout(() => {
+										if (hasAlarm) {
+											dingSound.play()
+										}
+										stopStreamedVideo()
+									}, (duration + 5) * 1000)
+								}
+							}
+						}}
+						icon={isRecording ? <ShutterRecording /> : <Shutter />}
+					/>
+					<IconButton
+						aria-label="Adjust settings"
+						width="64px"
+						height="64px"
+						variant={"solid"}
+						backgroundColor="transparent"
+						onClick={(e) => {
+							e.preventDefault()
+							onOpenSettings()
+						}}
+						icon={<Settings />}
+					/>
+					<IconButton
+						aria-label="Adjust alarm"
+						width="64px"
+						height="64px"
+						variant={"solid"}
+						backgroundColor="transparent"
+						onClick={(e) => {
+							e.preventDefault()
+							onOpenAlarm()
+						}}
+						icon={hasDetectionAlarm || hasAlarm ? <BellRinging /> : <BellOff />}
+					/>
+				</Flex>
+				<canvas id="download" height="0px"></canvas>
+				{/* 
+			
 				{/* {!serviceWorkerActive && <Text fontSize="sm">{`Starting up...`}</Text>} */}
-				{framesCaptured !== null && (
-					<Text fontSize="sm">{`Photos taken: ${framesCaptured}`}</Text>
-				)}
-				{photosSaved !== null && (
-					<Text fontSize="sm">{`Photos saved: ${photosSaved}`}</Text>
-				)}
-				{isFinished && (
+
+				{/* {isFinished && (
 					<Text
 						fontSize="sm"
 						colorScheme="red"
 					>{`Finished Recording Successfully`}</Text>
-				)}
-				<canvas id="download" height="0px"></canvas>
+				)} */}
+				{/* 
 
 				<Flex justify="center" id="capturedFrames" w="100%">
 					<canvas id="debug" height="600px" width="600px"></canvas>
 					<canvas id="debug2" height="600px" width="600px"></canvas>
-				</Flex>
+				</Flex> */}
 				{/* <canvas id="worker" height="0px"></canvas>
 			
 				<img id="debugImg" height="4032px" width="3024px" />
