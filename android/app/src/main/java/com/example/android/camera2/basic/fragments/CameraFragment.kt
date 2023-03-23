@@ -18,31 +18,30 @@ package com.example.android.camera2.basic.fragments
 
 import android.annotation.SuppressLint
 import android.content.Context
-import android.content.Intent
 import android.graphics.*
+import android.graphics.drawable.ColorDrawable
 import android.hardware.camera2.*
 import android.media.Image
 import android.media.ImageReader
-import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.HandlerThread
+import android.text.Editable
+import android.text.TextWatcher
 import android.util.Log
 import android.view.*
-import android.webkit.WebSettings
 import android.webkit.WebView
-import android.widget.PopupMenu
-import androidx.annotation.RequiresApi
+import android.widget.*
 import androidx.core.graphics.drawable.toDrawable
-import androidx.core.net.toUri
+import androidx.core.widget.doAfterTextChanged
+import androidx.core.widget.doOnTextChanged
 import androidx.fragment.app.Fragment
-import androidx.fragment.app.FragmentManager
-import androidx.fragment.app.commit
 import androidx.lifecycle.Observer
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavController
 import androidx.navigation.Navigation
 import androidx.navigation.fragment.navArgs
+import androidx.recyclerview.widget.RecyclerView
 import com.example.android.camera.utils.OrientationLiveData
 import com.example.android.camera.utils.computeExifOrientation
 import com.example.android.camera.utils.getPreviewOutputSize
@@ -51,7 +50,6 @@ import com.example.android.camera2.basic.R
 import com.example.android.camera2.basic.databinding.FragmentCameraBinding
 import com.google.firebase.ktx.Firebase
 import com.google.firebase.storage.ktx.storage
-import com.google.firebase.storage.ktx.storageMetadata
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -71,6 +69,19 @@ class CameraFragment : Fragment() {
     /** Android ViewBinding */
     private var _fragmentCameraBinding: FragmentCameraBinding? = null
     private val fragmentCameraBinding get() = _fragmentCameraBinding!!
+
+    private val DURATION = "duration"
+    private val NUMBER_OF_PHOTOS = "number_of_photos"
+    private val UNTIL_STOPPED = "until_stopped"
+    private var selectedCapture = DURATION
+
+    private var durationTime = 600
+    private var numberOfPhotos = 10
+    private var countDownTimer = true
+    private var hasAlarm = false
+    private var hasDetectionAlarm = false
+
+    private var isPopupOpen = false
 
     /** AndroidX navigation arguments */
     private val args: CameraFragmentArgs by navArgs()
@@ -134,33 +145,201 @@ class CameraFragment : Fragment() {
 
     /** Live data listener for changes in the device orientation relative to the camera */
     private lateinit var relativeOrientation: OrientationLiveData
+//    data class Image(val imageUrl: String)
 
-    @SuppressLint("ResourceType")
+//    class MyAdapter(private val images: List<Int>) :
+//        RecyclerView.Adapter<MyAdapter.MyViewHolder>() {
+//
+//        inner class MyViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+//            val imageView: ImageView = itemView.findViewById(R.id.image_view)
+//        }
+//
+//        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): MyViewHolder {
+//            val itemView = LayoutInflater.from(parent.context)
+//                .inflate(R.layout.item_cardview, parent, false)
+//            return MyViewHolder(itemView)
+//        }
+//
+//        override fun onBindViewHolder(holder: MyViewHolder, position: Int) {
+//            holder.imageView.setImageResource(images[position])
+//        }
+//
+//        override fun getItemCount() = images.size
+//    }
+
+    @SuppressLint("ResourceType", "MissingInflatedId")
     override fun onCreateView(
             inflater: LayoutInflater,
             container: ViewGroup?,
             savedInstanceState: Bundle?
     ): View {
         _fragmentCameraBinding = FragmentCameraBinding.inflate(inflater, container, false)
-        settingsMenu = PopupMenu(activity, fragmentCameraBinding.root.findViewById(R.menu.settings_menu)) // where view is the anchor view for the popup menu
-        settingsMenu.menuInflater.inflate(R.menu.settings_menu, settingsMenu.menu)
-        settingsMenu.setOnMenuItemClickListener { menuItem ->
-            when (menuItem.itemId) {
-                R.id.menu_item_1 -> {
-                    // Handle menu item 1 click
-                    true
+
+        val settings =  _fragmentCameraBinding!!.settings
+        settings?.setOnClickListener {
+
+            val popupView: View = inflater.inflate(R.layout.settings_window, null)
+            val popupWindow = PopupWindow(
+                popupView,
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+
+
+            popupWindow.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT));
+            popupWindow.setOutsideTouchable(true)
+            popupWindow.showAtLocation(_fragmentCameraBinding!!.root, Gravity.CENTER, 0, 0);
+
+            val closeButton: Button = popupView.findViewById(R.id.closeSettings) as Button
+            closeButton.setOnClickListener(
+                View.OnClickListener {
+                    popupWindow.dismiss()
                 }
-                R.id.menu_item_2 -> {
-                    // Handle menu item 2 click
-                    true
+            )
+
+            val captureMode: RadioGroup = popupView.findViewById(R.id.captureMode) as RadioGroup
+            captureMode.setOnCheckedChangeListener { group, checkedId ->
+                val radio: RadioButton = popupView.findViewById(checkedId)
+                val id = resources.getResourceEntryName(checkedId)
+                Log.d(TAG, radio.text as String)
+                when (id) {
+                    DURATION -> {
+                        Log.d(TAG,DURATION)
+                        selectedCapture = DURATION
+
+                    }
+                    NUMBER_OF_PHOTOS -> {
+                        Log.d(TAG,NUMBER_OF_PHOTOS)
+                        selectedCapture = NUMBER_OF_PHOTOS
+
+                    }
+                    UNTIL_STOPPED -> {
+                        Log.d(TAG,UNTIL_STOPPED)
+                        selectedCapture = UNTIL_STOPPED
+
+                    }
                 }
-                R.id.menu_item_3 -> {
-                    // Handle menu item 3 click
-                    true
+
+            }
+
+            val captureNumber = popupView.findViewById(R.id.editTextNumber) as EditText
+            fun modifyText(numberText: String) {
+                captureNumber.setText(numberText)
+                captureNumber.setSelection(numberText.length)
+            }
+            captureNumber.doAfterTextChanged {
+                if (it.isNullOrBlank()) {
+                    modifyText("0")
+                    return@doAfterTextChanged
                 }
-                else -> false
+                val originalText = it.toString()
+                try {
+                    val numberText = originalText.toInt().toString()
+                    if (originalText != numberText) {
+                        modifyText(numberText)
+                        when (selectedCapture) {
+                            DURATION -> {
+                                durationTime = originalText.toInt()
+                            }
+                            NUMBER_OF_PHOTOS -> {
+                                numberOfPhotos = originalText.toInt()
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    modifyText("0")
+                }
+            }// With the function
+
+//
+
+            when (selectedCapture) {
+                DURATION -> {
+                    // Set Radio
+                    val selectedRadio: RadioButton = popupView.findViewById(R.id.duration)
+                    selectedRadio.isChecked = true
+
+                    //Set number input
+//                    captureNumber.text = durationTime.toChar() as Editable
+                    // Set countdown
+
+                }
+                NUMBER_OF_PHOTOS -> {
+                    val selectedRadio: RadioButton = popupView.findViewById(R.id.number_of_photos)
+                    selectedRadio.isChecked = true
+
+//                    captureNumber.text = numberOfPhotos.toChar() as Editable
+
+                }
+                UNTIL_STOPPED -> {
+                    val selectedRadio: RadioButton = popupView.findViewById(R.id.until_stopped)
+                    selectedRadio.isChecked = true
+                }
+            }
+
+            val countdownSwitch: Switch = popupView.findViewById(R.id.mySwitch) as Switch
+            countdownSwitch.isChecked = countDownTimer
+            countdownSwitch.setOnCheckedChangeListener(CompoundButton.OnCheckedChangeListener {
+                    _, isChecked ->
+                countDownTimer = isChecked
+            })
+        }
+
+        val alarm =  _fragmentCameraBinding!!.alarm
+        alarm?.setOnClickListener {
+
+            val popupView: View = inflater.inflate(R.layout.alarm_window, null)
+
+            val popupWindow = PopupWindow(
+                popupView,
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+
+            popupWindow.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT));
+            popupWindow.setOutsideTouchable(true)
+            popupWindow.showAtLocation(_fragmentCameraBinding!!.root, Gravity.CENTER, 0, 0);
+
+            val closeButton: Button = popupView.findViewById(R.id.closeSettings) as Button
+            closeButton.setOnClickListener {
+                popupWindow.dismiss()
+            }
+
+            val alarmSwitch: Switch = popupView.findViewById(R.id.alarmFinished) as Switch
+            alarmSwitch.isChecked = hasAlarm
+            alarmSwitch.setOnCheckedChangeListener { _, isChecked ->
+                hasAlarm = isChecked
+            }
+
+            val detectionSwitch: Switch = popupView.findViewById(R.id.alarmDetected) as Switch
+            detectionSwitch.isChecked = hasDetectionAlarm
+            detectionSwitch.setOnCheckedChangeListener { _, isChecked ->
+                hasDetectionAlarm = isChecked
             }
         }
+
+
+        val pictures =  _fragmentCameraBinding!!.savedPhotos
+        pictures?.setOnClickListener {
+
+            val popupView: View = inflater.inflate(R.layout.gallery_window, null)
+
+            val popupWindow = PopupWindow(
+                popupView,
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+
+            popupWindow.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT));
+            popupWindow.setOutsideTouchable(true)
+            popupWindow.showAtLocation(_fragmentCameraBinding!!.root, Gravity.CENTER, 0, 0);
+
+            val closeButton: Button = popupView.findViewById(R.id.closeSettings) as Button
+            closeButton.setOnClickListener {
+                popupWindow.dismiss()
+            }
+        }
+
         return fragmentCameraBinding.root
     }
 
@@ -197,15 +376,10 @@ class CameraFragment : Fragment() {
 
         }
 
-        fragmentCameraBinding.savedPhotos?.setOnClickListener {
-            Log.d(TAG, "Loading gallery view")
-//            navController.navigate(CameraFragmentDirections.actionCameraToJpegViewer(output.absolutePath))
-        }
-
-        fragmentCameraBinding.settings?.setOnClickListener {
-            Log.d(TAG, "Settings tab")
-            settingsMenu.show()
-        }
+//        fragmentCameraBinding.settings?.setOnClickListener {
+//            Log.d(TAG, "Settings tab")
+//            settingsMenu.show()
+//        }
 
 
 //        @RequiresApi(Build.VERSION_CODES.HONEYCOMB)

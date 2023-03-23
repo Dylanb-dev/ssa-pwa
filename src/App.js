@@ -37,17 +37,11 @@ import matt1 from "./test/matt1.jpeg"
 // @ts-ignore
 import matt2 from "./test/matt2.jpeg"
 // @ts-ignore
-// @ts-ignore
 import matt3 from "./test/matt3.jpeg"
-
-// @ts-ignore
 // @ts-ignore
 import algoRef from "./test/algoRef.jpeg"
 // @ts-ignore
-// @ts-ignore
 import algoRefLine from "./test/algoRefLine.jpeg"
-
-// @ts-ignore
 // @ts-ignore
 import { compareImages } from "./compareImages"
 import { format } from "date-fns"
@@ -1122,7 +1116,7 @@ function App() {
 		console.log(`Time taken: ${Date.now() - startAlgo}`)
 		onOpenGallery()
 	}
-
+	console.log({ hasAlarm, hasDetectionAlarm })
 	return (
 		<div className="App">
 			<header className="App-header">
@@ -1244,7 +1238,7 @@ function App() {
 						<ModalHeader>{`Adjust Capture Settings`}</ModalHeader>
 						<ModalCloseButton />
 						<ModalBody>
-							<HStack {...group} p="4px">
+							<Stack {...group} p="4px">
 								{options.map((value) => {
 									const radio = getRadioProps({ value })
 									return (
@@ -1253,7 +1247,7 @@ function App() {
 										</RadioCard>
 									)
 								})}
-							</HStack>
+							</Stack>
 							{selectedTimer === TIMER_VALUES.duration && (
 								<NumberInput
 									my="8px"
@@ -1299,12 +1293,12 @@ function App() {
 									mb="0"
 									color="#2D3748"
 									// @ts-ignore
-									onChange={({ target }) => setHasCountdown(target.value)}
+									onChange={({ target }) => setHasCountdown(target.checked)}
 									my="8px"
 								>
 									5 second timer before start
 								</FormLabel>
-								<Switch id="countdown" isChecked={hasCountdown} />
+								<Switch id="countdown" defaultChecked={hasCountdown} />
 							</FormControl>
 						</ModalBody>
 						<ModalFooter>
@@ -1338,14 +1332,14 @@ function App() {
 								// @ts-ignore
 								onChange={({ target }) => {
 									//@ts-ignore
-									setHasAlarm(target.value)
+									setHasAlarm(target.checked)
 								}}
 								my="8px"
 							>
 								<FormLabel htmlFor="alarm" mb="0">
 									Alarm when finished
 								</FormLabel>
-								<Switch id="alarm" isChecked={hasAlarm} />
+								<Switch id="alarm" defaultChecked={hasAlarm} />
 							</FormControl>
 							<FormControl
 								display="flex"
@@ -1354,14 +1348,14 @@ function App() {
 								// @ts-ignore
 								onChange={({ target }) => {
 									//@ts-ignore
-									setHasDetectionAlarm(target.value)
+									setHasDetectionAlarm(target.checked)
 								}}
 								my="8px"
 							>
 								<FormLabel htmlFor="alarm" mb="0">
-									Alarm when satellite detected
+									Alarm when finished
 								</FormLabel>
-								<Switch id="alarm" isChecked={hasDetectionAlarm} />
+								<Switch id="alarm" defaultChecked={hasDetectionAlarm} />
 							</FormControl>
 						</ModalBody>
 						<ModalFooter>
@@ -1377,18 +1371,28 @@ function App() {
 						</ModalFooter>
 					</ModalContent>
 				</Modal>
-				<Flex align="center" width="100%" height="64px" px="8px">
-					<img src={logo} className="App-logo" alt="logo" />
-					<Flex direction="column">
-						<Heading fontSize="2xl">SatTrack</Heading>
-						<Text fontSize="10px">v322.2</Text>
-					</Flex>
-					<Text maxWidth="320px" color="InfoText" fontSize="sm">
-						{debugMessage}
-					</Text>
-				</Flex>
 				{showWebsite ? (
-					<Box height="calc(100vh - 160px)" width="100vw">
+					<></>
+				) : (
+					<Flex
+						alignItems="center"
+						justifyContent="center"
+						width="100%"
+						height="64px"
+						p="8px"
+					>
+						<img src={logo} className="App-logo" alt="logo" />
+						<Flex direction="column">
+							<Heading fontSize="2xl">SatTrack</Heading>
+							<Text fontSize="10px">v323.1</Text>
+						</Flex>
+						<Text maxWidth="320px" color="InfoText" fontSize="sm">
+							{debugMessage}
+						</Text>
+					</Flex>
+				)}
+				{showWebsite ? (
+					<Box height="calc(100vh - 128px)" width="100vw">
 						<iframe
 							style={{
 								transform: "scale(0.8)",
@@ -1405,12 +1409,13 @@ function App() {
 						direction="column"
 						justify="center"
 						width="100%"
-						height="calc(100vh - 160px)"
+						height="calc(100vh - 192px)"
 					>
-						<Flex justify="center" width="100%">
+						<Flex justify="center" width="100%" height="100%">
 							<video
 								id="video-preview"
 								width="100%"
+								height="100%"
 								autoPlay
 								playsInline
 							></video>
@@ -1423,12 +1428,7 @@ function App() {
 						)}
 					</Flex>
 				)}
-				<Flex
-					height="16px"
-					align="center"
-					justify="space-around"
-					width="100%00"
-				>
+				<Flex height="16px" align="center" justify="space-around" width="100%">
 					<Text height="16px" fontSize="sm" mr="16px">{`Exp 4s. ISO1600`}</Text>
 					<Text
 						height="16px"
@@ -1441,6 +1441,7 @@ function App() {
 					height="80px"
 					justify="space-between"
 					mx="8px"
+					marginBottom={"32px"}
 				>
 					<IconButton
 						aria-label="Show website for image analysis"
