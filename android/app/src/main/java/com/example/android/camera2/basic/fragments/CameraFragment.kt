@@ -21,29 +21,29 @@ import android.content.Context
 import android.graphics.*
 import android.graphics.drawable.ColorDrawable
 import android.hardware.camera2.*
+import android.media.ExifInterface
 import android.media.Image
 import android.media.ImageReader
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.HandlerThread
-import android.text.Editable
-import android.text.TextWatcher
 import android.util.Log
 import android.view.*
 import android.webkit.WebView
 import android.widget.*
+import androidx.annotation.RequiresApi
 import androidx.core.graphics.drawable.toDrawable
 import androidx.core.widget.doAfterTextChanged
-import androidx.core.widget.doOnTextChanged
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.Observer
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavController
 import androidx.navigation.Navigation
 import androidx.navigation.fragment.navArgs
-import androidx.recyclerview.widget.RecyclerView
 import com.example.android.camera.utils.OrientationLiveData
 import com.example.android.camera.utils.computeExifOrientation
+import com.example.android.camera.utils.decodeExifOrientation
 import com.example.android.camera.utils.getPreviewOutputSize
 import com.example.android.camera2.basic.CameraActivity
 import com.example.android.camera2.basic.R
@@ -54,6 +54,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import java.io.*
+import java.lang.Integer.parseInt
 import java.text.SimpleDateFormat
 import java.util.*
 import java.util.concurrent.ArrayBlockingQueue
@@ -331,22 +332,18 @@ class CameraFragment : Fragment() {
             )
 
             popupWindow.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT));
-            popupWindow.setOutsideTouchable(true)
+            popupWindow.isOutsideTouchable = true
             popupWindow.showAtLocation(_fragmentCameraBinding!!.root, Gravity.CENTER, 0, 0);
 
-            val closeButton: Button = popupView.findViewById(R.id.closeSettings) as Button
-            closeButton.setOnClickListener {
-                popupWindow.dismiss()
-            }
+            val image1: ImageView = popupView.findViewById(R.id.image_view)
+
+            val bitmap = decodeBitmap("/data/data/com.android.example.camera2.basic/files/IMG_2023_03_17_11_28_12_054.jpeg")
+
+            image1.setImageBitmap(bitmap)
         }
 
         return fragmentCameraBinding.root
     }
-
-//    override fun onCreate(savedInstanceState: Bundle?) {
-//        super.onCreate(savedInstanceState)
-//
-//    }
 
     @SuppressLint("MissingPermission")
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
@@ -373,7 +370,6 @@ class CameraFragment : Fragment() {
                 myWebView.loadUrl("https://d1e7enq0s1epae.cloudfront.net/")
                 isWebviewOpen = true
             }
-
         }
 
 //        fragmentCameraBinding.settings?.setOnClickListener {
@@ -504,13 +500,7 @@ class CameraFragment : Fragment() {
 //                        Log.d(TAG, "Image saved: ${output.absolutePath}")
 //
 //                        // If the result is a JPEG file, update EXIF metadata with orientation info
-//                        if (output.extension == "jpg") {
-//                            val exif = ExifInterface(output.absolutePath)
-//                            exif.setAttribute(
-//                                ExifInterface.TAG_ORIENTATION, result.orientation.toString())
-//                            exif.saveAttributes()
-//                            Log.d(TAG, "EXIF metadata saved: ${output.absolutePath}")
-//                        }
+
 
 //                         Display the photo taken to user
 
@@ -654,10 +644,7 @@ class CameraFragment : Fragment() {
                             // TODO(owahltinez): b/142011420
 
                             // Compute EXIF orientation metadata
-                            val rotation = relativeOrientation.value ?: 0
-                            val mirrored = characteristics.get(CameraCharacteristics.LENS_FACING) ==
-                                    CameraCharacteristics.LENS_FACING_FRONT
-                            val exifOrientation = computeExifOrientation(rotation, mirrored)
+
 
                             val buffer = image.planes[0].buffer.slice()
                             val bytes = ByteArray(buffer.remaining()).apply { buffer.get(this) }
@@ -698,7 +685,10 @@ class CameraFragment : Fragment() {
                                     brightness(pixels[center]),
                                     80.0)
                             val pixelScoreThreshold: Int = 5 + (listBright.minOrNull()?.toInt() ?: 10)
-
+                            val rotation = relativeOrientation.value ?: 0
+                            val mirrored = characteristics.get(CameraCharacteristics.LENS_FACING) ==
+                                    CameraCharacteristics.LENS_FACING_FRONT
+                            val exifOrientation = computeExifOrientation(rotation, mirrored)
 
                             Log.d(TAG, "lineAlgorithm: $pixelScoreThreshold")
 
@@ -708,11 +698,11 @@ class CameraFragment : Fragment() {
 //                            Log.d(TAG, "lineAlgorithm: $res")
                             val highlightBitmap = createHighlightBitmap(smallBmp, pixelScoreThreshold)
                             val fileDir = requireContext().filesDir
-                            writeBitmapToDisk(highlightBitmap, fileDir, "highlight.jpeg")
-                            writeBitmapToDisk(smallBmp, fileDir, "original.jpeg")
+                            writeBitmapToDisk(highlightBitmap, fileDir, "highlight.jpeg", exifOrientation)
+                            writeBitmapToDisk(smallBmp, fileDir, "original.jpeg", exifOrientation)
                             val sq = drawSquareOnBitmap(smallBmp, res.jstart.toFloat(),
                                res.istart.toFloat(), res.jend.toFloat(), res.iend.toFloat())
-                            writeBitmapToDisk(sq, fileDir, "selected.jpeg")
+                            writeBitmapToDisk(sq, fileDir, "selected.jpeg", exifOrientation)
                             image.close()
 //                            if (res.size > 12) {
 //                                val highlightBitmap = createHighlightBitmap(smallBmp, pixelScoreThreshold)
@@ -730,6 +720,9 @@ class CameraFragment : Fragment() {
                             val firebasePath = "${startDate}/${currentDate}.jpeg"
                             Log.e(TAG, firebasePath)
                             cont.resume(1)
+
+
+
 //                            val uploadTask = storageRef.child(
 //                                    firebasePath
 //                                ).putFile(output.toUri(), storageMetadata {
@@ -965,16 +958,25 @@ class CameraFragment : Fragment() {
             canvas.drawRect(left, top, right,bottom, paint)
             return newBitmap
         }
-        fun writeBitmapToDisk(bitmap: Bitmap, dir: File, fileName: String) {
-//             dir = requireContext().filesDir
+        @RequiresApi(Build.VERSION_CODES.Q)
+        fun writeBitmapToDisk(bitmap: Bitmap, dir: File, fileName: String, exifOrientation: Int) {
             val file = File(dir, fileName)
 
             // Compress the bitmap as JPEG with 100% quality
             val outputStream = FileOutputStream(file)
+
             bitmap.compress(Bitmap.CompressFormat.JPEG, 100, outputStream)
 
             outputStream.flush()
             outputStream.close()
+
+            val exif = ExifInterface(file)
+            exif.setAttribute(
+                ExifInterface.TAG_ORIENTATION, exifOrientation.toString())
+            exif.saveAttributes()
+            Log.d(TAG, "EXIF metadata saved")
+
+
         }
 
         data class BrightCluster(
@@ -984,6 +986,35 @@ class CameraFragment : Fragment() {
             var jend: Int,
             var size: Int,
         )
+
+        /** Utility function used to decode a [Bitmap] from a byte array */
+        private fun decodeBitmap(filepath: String): Bitmap {
+            val inputFile = File(filepath)
+            val inputBuffer = BufferedInputStream(inputFile.inputStream()).let { stream ->
+                ByteArray(stream.available()).also {
+                    stream.read(it)
+                    stream.close()
+                }
+            }
+
+            val exif = ExifInterface(filepath)
+
+            val tagOrientation = exif.getAttribute( ExifInterface.TAG_ORIENTATION)
+            Log.d(TAG, "tagOrientation:  $tagOrientation")
+            var orientation = 0
+            if(tagOrientation !=null) {
+                orientation = parseInt(tagOrientation)
+            }
+
+            val bitmapTransformation = decodeExifOrientation(orientation)
+
+            // Load bitmap from given buffer
+            val bitmap = BitmapFactory.decodeByteArray(inputBuffer, 0, inputBuffer.size)
+
+            // Transform bitmap orientation using provided metadata
+            return Bitmap.createBitmap(
+                bitmap, 0, 0, bitmap.width, bitmap.height, bitmapTransformation, true)
+        }
 
         private fun lineAlgorithm(imageData: ImageData, pixelScoreThreshold: Int): BrightCluster {
             Log.d(TAG, "Line algorithm starting...")

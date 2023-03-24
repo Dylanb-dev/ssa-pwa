@@ -191,7 +191,7 @@
                 android:contentDescription="@string/google_app_id"
                 android:padding="16dp"
                 android:scaleType="fitCenter"
-                android:src="@drawable/ic_alarm" />
+                android:src="@drawable/ic_bellringing" />
 
         </LinearLayout>
     </LinearLayout>
