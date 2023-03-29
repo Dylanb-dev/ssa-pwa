@@ -12,6 +12,7 @@ body {
   justify-content: center;
   height: 100vh;
   overflow:hidden;
+  min-height: fill-available;
 }
 
 code {
@@ -34,6 +35,7 @@ p {
   margin: 0;
   height: 100vh;
   padding: 0;
+  min-height: fill-available;
 }
 
 .App {
@@ -41,7 +43,7 @@ p {
   text-align: center;
   width: 100vw;
   max-width: 480px;
-
+  min-height: fill-available;
   width: 100%;
   height: 100vh;
 }

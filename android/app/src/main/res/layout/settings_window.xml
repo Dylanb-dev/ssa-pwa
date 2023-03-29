@@ -61,6 +61,8 @@
             android:layout_height="wrap_content"
             android:ems="5"
             android:inputType="number"
+            android:focusable="true"
+            android:focusableInTouchMode="true"
             android:text="0" />
 
         <Switch
@@ -75,6 +77,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="Close" />
+
 
     </LinearLayout>
 

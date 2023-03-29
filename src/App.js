@@ -1353,7 +1353,7 @@ function App() {
 								my="8px"
 							>
 								<FormLabel htmlFor="alarm" mb="0">
-									Alarm when finished
+									Alarm when detected streak
 								</FormLabel>
 								<Switch id="alarm" defaultChecked={hasDetectionAlarm} />
 							</FormControl>
