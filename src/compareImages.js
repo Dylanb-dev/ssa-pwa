@@ -1,8 +1,7 @@
 /**
- * @param {Canvas} canvas
+ * @param {OffscreenCanvas} canvas
  * @param {ImageBitmap} imageBitmapA
  * @param {ImageBitmap} imageBitmapB
- * @param {boolean} debug
  * @returns {{result: boolean, score: number, c}} myObj
 
  */
@@ -20,6 +19,7 @@ export function compareImages(canvas, imageBitmapA, imageBitmapB) {
 		console.error(
 			`image A is ${imageBitmapA.width}x${imageBitmapA.height}px and image B is ${imageBitmapB.width}x${imageBitmapB.height}px so cannot compare`
 		)
+		// @ts-ignore
 		return { result: false, score: 0 }
 	}
 
@@ -29,9 +29,13 @@ export function compareImages(canvas, imageBitmapA, imageBitmapB) {
 	const ctx = canvas.getContext("2d", {
 		willReadFrequently: true,
 	})
+	// @ts-ignore
 	ctx.globalCompositeOperation = "difference"
+	// @ts-ignore
 	ctx.drawImage(imageBitmapA, 0, 0)
+	// @ts-ignore
 	ctx.drawImage(imageBitmapB, 0, 0)
+	// @ts-ignore
 	let diff = ctx.getImageData(0, 0, width, height)
 
 	// Noise threshold
@@ -49,8 +53,10 @@ export function compareImages(canvas, imageBitmapA, imageBitmapB) {
 	}
 
 	if (imageScore > 1000 && imageScore < 200000) {
+		// @ts-ignore
 		return { result: true, score: imageScore }
 	} else {
+		// @ts-ignore
 		return { result: false, score: imageScore }
 	}
 }

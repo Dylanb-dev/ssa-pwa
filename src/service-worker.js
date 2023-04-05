@@ -7,16 +7,22 @@
 // You can also remove this file if you'd prefer not to use a
 // service worker, and the Workbox build step will be skipped.
 import { initializeApp } from "firebase/app"
-import { getStorage, ref, uploadBytes } from "firebase/storage"
+import { getStorage, ref, uploadString } from "firebase/storage"
 
 import { clientsClaim } from "workbox-core"
 import { ExpirationPlugin } from "workbox-expiration"
 import { precacheAndRoute, createHandlerBoundToURL } from "workbox-precaching"
 import { registerRoute } from "workbox-routing"
 import { StaleWhileRevalidate } from "workbox-strategies"
+import { format } from "date-fns"
+
+import piexif from "./piexifjs"
+
+// @ts-ignore
 import XML from "xhr-shim"
 import { lineAlgorithm } from "./App"
 
+// @ts-ignore
 global["XMLHttpRequest"] = XML
 
 const firebaseConfig = {
@@ -44,6 +50,7 @@ clientsClaim()
 // Their URLs are injected into the manifest variable below.
 // This variable must be present somewhere in your service worker file,
 // even if you decide not to use precaching. See https://cra.link/PWA
+// @ts-ignore
 precacheAndRoute(self.__WB_MANIFEST)
 
 // Set up App Shell-style routing, so that all navigation requests
@@ -91,6 +98,7 @@ registerRoute(
 // registration.waiting.postMessage({type: 'SKIP_WAITING'})
 self.addEventListener("message", (event) => {
 	if (event.data && event.data.type === "SKIP_WAITING") {
+		// @ts-ignore
 		self.skipWaiting()
 	}
 })
@@ -98,59 +106,144 @@ self.addEventListener("message", (event) => {
 // Any other custom service worker logic can go here.
 let canvasA = null
 let canvasB = null
-
-let count = 0
+let lightenContext
+let differenceContext
+let imageData = {}
 
 self.addEventListener("message", async (event) => {
-	canvasA = new OffscreenCanvas(100, 1)
-	canvasB = new OffscreenCanvas(100, 1)
+	console.log(`service worker recieved ${JSON.stringify(event.data)}`)
 
-	if (event.data.bitmap && !event.data.msg) {
+	if (event.data.diffWidth) {
+		console.log("setting contexts")
+		const { diffWidth, diffHeight, width, height } = event.data
+		canvasA = new OffscreenCanvas(width, height)
+		canvasB = new OffscreenCanvas(Math.floor(diffWidth), Math.floor(diffHeight))
+
+		console.log({ diffWidth, diffHeight, width, height })
+
+		lightenContext = canvasA.getContext("2d", { willReadFrequently: true })
+		//@ts-ignore
+		lightenContext.globalCompositeOperation = "lighten"
+
+		differenceContext = canvasB.getContext("2d", { willReadFrequently: true })
+		//@ts-ignore
+		differenceContext.globalCompositeOperation = "difference"
+		console.log(lightenContext, differenceContext)
+	}
+
+	if (event.data.bitmap && event.data.group && event.data.number) {
 		console.log("processing bitmap")
 		console.log(event.data.bitmap)
 		console.log("PROCESSING EVENT")
 
 		const date = new Date().toString()
-		const { bitmap, group } = event.data
-		const ctx = canvasA.getContext("2d", { willReadFrequently: true })
-		ctx.globalCompositeOperation = "difference"
-		let width = bitmap.width / 3
-		let height = bitmap.height / 3
-		canvasA.width = width
-		canvasA.height = height
-		ctx.drawImage(bitmap, 0, 0, width, height)
-		console.log("draw image")
-		count++
+		const { bitmap, group, number } = event.data
 
-		if (count > 1) {
-			const imageData = ctx.getImageData(0, 0, width, height)
+		const downWidth = Math.floor(bitmap.width / 3)
+		const downHeight = Math.floor(bitmap.height / 3)
+		const height = bitmap.height
+		const width = bitmap.width
+
+		console.log({ differenceContext, lightenContext })
+		differenceContext.drawImage(bitmap, 0, 0, downWidth, downHeight)
+		lightenContext.drawImage(bitmap, 0, 0, width, height)
+		bitmap.close()
+		// If frames 0-3, just build up lighten and difference image
+		// if (number % 3 !== 0) {
+		// 	console.log(`drawing frame ${number}`)
+		// 	differenceContext.drawImage(bitmap, 0, 0, downWidth, downHeight)
+		// 	lightenContext.drawImage(bitmap, 0, 0, width, height)
+		// 	bitmap.close()
+		// }
+		// Do streak detection, save image if has streak, reset canvases
+		if (number !== 0 && number % 3 === 0) {
+			console.log(`drawing frame ${number} and checking for streak`)
+
+			console.log({ event })
+			imageData = differenceContext.getImageData(0, 0, downWidth, downHeight)
 			const { longestObject } = lineAlgorithm(imageData)
-			if (longestObject.size > 7) {
-				console.log("detected a positive diff, uploading image")
-				canvasB.width = bitmap.width
-				canvasB.height = bitmap.height
-				const ctxB = canvasB.getContext("bitmaprenderer")
-				ctxB.transferFromImageBitmap(bitmap)
-				canvasB
-					.convertToBlob({ type: "image/jpeg", quality: 0.95 })
-					.then(async (res) => {
-						console.log(res)
-						count = count + 1
-						var imagesRef = ref(storageRef, `${group}/${date}`)
-						await uploadBytes(imagesRef, res)
-						console.log(`uploaded to firebase ${group}/${date}`)
+			console.log({ longestObject })
+			imageData = {}
+			// Streak found, create final image
+			if (longestObject.size > 10 && longestObject.size < 500) {
+				var zeroth = {}
+				let exif = {}
+				let gps = {}
+				exif[piexif.ExifIFD.DateTimeOriginal] = format(
+					new Date(date),
+					"yyyy:MM:dd HH:mm:SS"
+				)
+				exif[piexif.ExifIFD.ExposureTime] = "4s"
+				exif[36880] = "+08:00"
+				var lat = -32.05
+				var lng = 115.9
+				gps[piexif.GPSIFD.GPSLatitudeRef] = lat < 0 ? "S" : "N"
+				gps[piexif.GPSIFD.GPSLatitude] = piexif.GPSHelper.degToDmsRational(lat)
+				gps[piexif.GPSIFD.GPSLongitudeRef] = lng < 0 ? "W" : "E"
+				gps[piexif.GPSIFD.GPSLongitude] = piexif.GPSHelper.degToDmsRational(lng)
+				var exifObj = { "0th": zeroth, Exif: exif, GPS: gps }
+				var exifbytes = piexif.dump(exifObj)
+
+				const blob = await canvasA.convertToBlob({
+					type: "image/jpeg",
+					quality: 0.95,
+				})
+
+				var reader = new FileReader()
+				reader.onload = function (e) {
+					//@ts-ignore
+					var jpegData = piexif.insert(exifbytes, e.target.result)
+					console.log("pushing jpeg")
+					//@ts-ignore
+					event.source.postMessage({
+						jpeg: jpegData,
+						date,
+						longestObject,
 					})
-				// self.clients.matchAll().then(function (clients) {
-				// 	clients.forEach(function (client) {
-				// 		client.postMessage({
-				// 			date,
-				// 			longestObject,
-				// 			bitmap,
-				// 			msg: "Hey I just got a fetch from you!",
-				// 		})
-				// 	})
-				// })
+					var imagesRef = ref(
+						storageRef,
+						`${group}/${new Date(date).toString()}`
+					)
+					uploadString(imagesRef, jpegData, "data_url")
+					console.log(
+						`uploaded to firebase ${group}/${new Date(date).toString()}`
+					)
+					// reset canvases
+					canvasA = new OffscreenCanvas(width, height)
+					lightenContext = canvasA.getContext("2d", {
+						willReadFrequently: true,
+					})
+					//@ts-ignore
+					lightenContext.globalCompositeOperation = "lighten"
+
+					canvasB = new OffscreenCanvas(downWidth, downHeight)
+					differenceContext = canvasB.getContext("2d", {
+						willReadFrequently: true,
+					})
+					//@ts-ignore
+					differenceContext.globalCompositeOperation = "difference"
+				}
+				reader.readAsDataURL(blob)
+			} else {
+				// reset canvases
+				canvasA = new OffscreenCanvas(width, height)
+				lightenContext = canvasA.getContext("2d", { willReadFrequently: true })
+				//@ts-ignore
+				lightenContext.globalCompositeOperation = "lighten"
+
+				canvasB = new OffscreenCanvas(downWidth, downHeight)
+				differenceContext = canvasB.getContext("2d", {
+					willReadFrequently: true,
+				})
+				//@ts-ignore
+				differenceContext.globalCompositeOperation = "difference"
 			}
 		}
+		// First frame, no streak logic
+		// else if (number === 0) {
+		// 	differenceContext.drawImage(bitmap, 0, 0, downWidth, downHeight)
+		// 	lightenContext.drawImage(bitmap, 0, 0, width, height)
+		// 	bitmap.close()
+		// }
 	}
 })

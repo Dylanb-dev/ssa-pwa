@@ -1,30 +1,53 @@
 import React, { useState, useRef, useEffect, Component } from "react"
 import logo from "./logo.jpg"
+// @ts-ignore
 import sound from "./ding.mp3"
 import image1 from "./test/1.jpeg"
 import image2 from "./test/2.jpeg"
 import image3 from "./test/3.jpeg"
 import image4 from "./test/4.jpeg"
+// @ts-ignore
+// @ts-ignore
 import image5 from "./test/5.jpeg"
+// @ts-ignore
+// @ts-ignore
 import image6 from "./test/6.jpeg"
+// @ts-ignore
+// @ts-ignore
 import image7 from "./test/7.jpeg"
+// @ts-ignore
+// @ts-ignore
 import image8 from "./test/8.jpeg"
+// @ts-ignore
+// @ts-ignore
 import image9 from "./test/9.jpeg"
+// @ts-ignore
+// @ts-ignore
 import test3 from "./test/test3.png"
+// @ts-ignore
+// @ts-ignore
 import noise from "./test/noise.jpeg"
+// @ts-ignore
+// @ts-ignore
 import line2 from "./test/line2.png"
+// @ts-ignore
+// @ts-ignore
 import matt1 from "./test/matt1.jpeg"
+// @ts-ignore
+// @ts-ignore
 import matt2 from "./test/matt2.jpeg"
+// @ts-ignore
 import matt3 from "./test/matt3.jpeg"
-
+// @ts-ignore
 import algoRef from "./test/algoRef.jpeg"
+// @ts-ignore
 import algoRefLine from "./test/algoRefLine.jpeg"
-
+// @ts-ignore
 import { compareImages } from "./compareImages"
 import { format } from "date-fns"
 
 import piexif from "./piexifjs"
-
+import { createIcon } from "@chakra-ui/icons"
 import {
 	Modal,
 	ModalOverlay,
@@ -52,9 +75,21 @@ import {
 	FormControl,
 	FormLabel,
 	Switch,
+	IconButton,
 } from "@chakra-ui/react"
-import { getStorage, ref, uploadBytes } from "firebase/storage"
+// @ts-ignore
+import { getStorage, ref, uploadString } from "firebase/storage"
 import { initializeApp } from "firebase/app"
+
+import { ReactComponent as BellOff } from "./icons/bell-off.svg"
+import { ReactComponent as BellRinging } from "./icons/bell-ringing.svg"
+import { ReactComponent as Pictures } from "./icons/pictures.svg"
+import { ReactComponent as Settings } from "./icons/settings.svg"
+import { ReactComponent as UploadPhoto } from "./icons/upload-photo.svg"
+
+import { ReactComponent as Shutter } from "./shutter/ic_shutter_normal.svg"
+import { ReactComponent as ShutterPressed } from "./shutter/ic_shutter_pressed.svg"
+import { ReactComponent as ShutterRecording } from "./shutter/ic_shutter_recording.svg"
 
 const firebaseConfig = {
 	apiKey: "AIzaSyBYAQRyqjZ-vjXT1FikWjmVNDpHe4tiyJs",
@@ -73,6 +108,7 @@ const firebaseConfig = {
 // Initialize Firebase
 initializeApp(firebaseConfig)
 
+// @ts-ignore
 const storageRef = getStorage()
 
 const loadImage = (url) =>
@@ -127,10 +163,13 @@ function lineAlgorithm(imageData, debug = false) {
 	var centerPixel = (imageData.width / 2) * (imageData.height / 2) * 4
 	var PIXEL_SCORE_THRESHOLD =
 		48 +
-		(imageData.data[centerPixel] +
-			imageData.data[centerPixel + 1] +
-			imageData.data[centerPixel + 2]) /
-			3
+		Math.min(
+			(imageData.data[centerPixel] +
+				imageData.data[centerPixel + 1] +
+				imageData.data[centerPixel + 2]) /
+				3,
+			80
+		)
 	console.log({ PIXEL_SCORE_THRESHOLD })
 	let rows = imageData.height
 	let cols = imageData.width
@@ -141,9 +180,12 @@ function lineAlgorithm(imageData, debug = false) {
 
 	if (debug) {
 		c = document.getElementById("debug2")
+		// @ts-ignore
 		ctx = c.getContext("2d")
 		imgData = ctx.createImageData(imageData.width, imageData.height)
+		// @ts-ignore
 		c.width = imageData.width
+		// @ts-ignore
 		c.height = imageData.height
 	}
 
@@ -299,118 +341,208 @@ function lineAlgorithm(imageData, debug = false) {
 	return { longestObject }
 }
 
+// const UploadIcon = createIcon(UploadPhoto)
+
 function App() {
 	const VIEW_WIDTH = Math.max(
 		document.documentElement.clientWidth || 0,
 		window.innerWidth || 0
 	)
 	const TIMER_VALUES = {
-		until_stopped: "Until stopped",
 		duration: "Duration (seconds)",
 		image_limit: "Number of Images",
+		until_stopped: "Until stopped",
 	}
+	const DOWNSAMPLE = 3
+	const dingSound = new Audio(sound)
 
 	const [isRecording, setIsRecording] = useState(false)
-	const [selectedImages, setSelectedImages] = useState([])
+
 	const [isFinished, setIsFinished] = useState(false)
-	const [selectedTimer, setSelectedTimer] = useState(TIMER_VALUES.image_limit)
-	const [duration, setDuration] = useState(30)
-	const [numberOfImages, setNumberOfImages] = useState(10)
+	const [selectedTimer, setSelectedTimer] = useState(TIMER_VALUES.duration)
+	const [duration, setDuration] = useState(600)
+	const [numberOfImages, setNumberOfImages] = useState(5)
+	const [hasPreview, setHasPreview] = useState(false)
+	// @ts-ignore
+	const [serviceWorkerActive, setServiceWorkerActive] = useState(false)
+
 	const [hasAlarm, setHasAlarm] = useState(true)
+	const [hasDetectionAlarm, setHasDetectionAlarm] = useState(false)
+	// @ts-ignore
+	// @ts-ignore
 	const [hasCountdown, setHasCountdown] = useState(true)
-	const [debugMessage, setDebugMessage] = useState("")
-	const [framesCaptured, setFramesCaptured] = useState(null)
-	const [photosSaved, setPhotosSaved] = useState(null)
-
+	const [debugMessage, setDebugMessage] = useState(" ")
+	const [framesCaptured, setFramesCaptured] = useState(0)
+	const [photosSaved, setPhotosSaved] = useState(0)
+	const [showWebsite, setShowWebsite] = useState(false)
 	const [checkedItems, setCheckedItems] = React.useState({})
-
-	const { isOpen, onOpen, onClose } = useDisclosure()
+	const {
+		isOpen: isGalleryOpen,
+		onOpen: onOpenGallery,
+		onClose: onCloseGallery,
+	} = useDisclosure()
+	const {
+		isOpen: isSettingsOpen,
+		onOpen: onOpenSettings,
+		onClose: onCloseSettings,
+	} = useDisclosure()
+	const {
+		isOpen: isAlarmOpen,
+		onOpen: onOpenAlarm,
+		onClose: onCloseAlarm,
+	} = useDisclosure()
 
 	const streamRef = useRef()
-	const imageBMP = useRef([])
+	const imageJpeg = useRef([])
+	// @ts-ignore
+	const bmpStack = useRef([])
 
+	const offScreenCanvasLighten = useRef()
+	// @ts-ignore
+	const offScreenCanvasLighter = useRef()
+	const offScreenCanvasDifference = useRef()
+	const offScreenCanvasFirestore = useRef()
+	const videoDimensions = useRef({
+		width: 0,
+		height: 0,
+		diffHeight: 0,
+		diffWidth: 0,
+	})
+	const exposureTime = useRef()
+
+	const isProcessing = useRef(false)
+
+	// Initialise offscreen canvases
 	// useEffect(() => {
-	// 	if ("serviceWorker" in navigator) {
-	// 		navigator.serviceWorker.ready.then((registration) => {
-	// 			console.log(`A service worker is active: ${registration.active}`)
-
-	// 			navigator.serviceWorker.addEventListener("message", (event) => {
-	// 				console.log("RECIEVED MESSAGE FROM WORKER")
-	// 				const { date, longestObject, bitmap, msg } = event.data
-	// 				console.log({ date, longestObject, bitmap, msg })
-	// 				imageBMP.current.push({
-	// 					date,
-	// 					longestObject,
-	// 					bitmap,
-	// 				})
-	// 			})
-	// 		})
-	// 	} else {
-	// 		console.error("Service workers are not supported.")
-	// 	}
+	// 	// @ts-ignore
+	// 	offScreenCanvasLighten.current = new OffscreenCanvas(0, 100)
+	// 	// @ts-ignore
+	// 	offScreenCanvasDifference.current = new OffscreenCanvas(0, 100)
+	// 	// @ts-ignore
+	// 	offScreenCanvasFirestore.current = new OffscreenCanvas(0, 100)
 	// }, [])
 
-	async function startRecording(
-		e,
-		isAndroid = false,
-		iso = 1000,
-		test = false
-	) {
-		setIsRecording(true)
+	// onBitmap(
+	// 	bitmap,
+	// 	frameCount - 6,
+	// 	new Date(),
+	// 	group,
+	// 	lightenCanvas,
+	// 	differenceCanvas
+	// )
+	// Recieve a sequence of images, return possible streak 4s lighten image with exif data
+	console.log("render")
+	// useEffect(() => {
+	// 	setServiceWorkerActive(true)
+
+	// 	// if ("serviceWorker" in navigator) {
+	// 	// 	navigator.serviceWorker.ready.then((registration) => {
+	// 	// 		console.log(`A service worker is active: ${registration.active}`)
+	// 	// 		setServiceWorkerActive(true)
+	// 	// 		console.log(navigator.serviceWorker)
+	// 	// 		navigator.serviceWorker.addEventListener("message", (event) => {
+	// 	// 			console.log("RECIEVED MESSAGE FROM WORKER")
+	// 	// 			const { date, longestObject, jpeg } = event.data
+	// 	// 			console.log({ date, longestObject, jpeg })
+	// 	// 			dingSound.play()
+	// 	// 			// @ts-ignore
+	// 	// 			imageJpeg.current.push({
+	// 	// 				date,
+	// 	// 				longestObject,
+	// 	// 				jpeg,
+	// 	// 			})
+	// 	// 		})
+	// 	// 	})
+	// 	// } else {
+	// 	// 	console.error("Service workers are not supported.")
+	// 	// }
+	// }, [])
+
+	async function startCamera() {
+		setHasPreview(true)
 		setDebugMessage("")
 		const constraints = {
 			audio: false,
+			// video: true
 			video: {
 				facingMode: "environment",
-				height: 8000,
-				width: 8000,
+				width: { ideal: 3500 },
+				height: { ideal: 4500 },
+				resizeMode: { ideal: "none" },
+				frameRate: { ideal: 10 },
 			},
 		}
 		try {
+			// const readyServiceWorker = await navigator.serviceWorker.ready
 			const stream = await navigator.mediaDevices.getUserMedia(constraints)
+			// @ts-ignore
 			streamRef.current = stream
-			handleSuccess(isAndroid, iso, test)
+			handleSuccess()
 		} catch (e) {
 			setIsRecording(false)
 			console.error(e)
 		}
 	}
 
-	async function handleSuccess(isAndroid = false, iso = 1000, test = false) {
-		setFramesCaptured(0)
+	useEffect(() => {
+		startCamera()
+	}, [])
 
-		imageBMP.current = []
+	async function handleSuccess() {
+		setHasPreview(true)
+
+		// @ts-ignore
+		console.log(streamRef.current)
+		imageJpeg.current = []
 		console.log("handleSuccess")
 		const stream = streamRef.current
 		const video = document.querySelector("#video-preview")
+		// @ts-ignore
 		video.srcObject = stream
 
+		// @ts-ignore
 		const [track] = stream.getVideoTracks()
-		document.createElement("canvas")
+		console.log({ track })
 
 		const capabilities = track.getCapabilities()
 		const settings = track.getSettings()
 
-		console.log("Capabilities: ", capabilities)
-		console.log("Settings: ", settings)
-		// Basic settings for all camera
+		videoDimensions.current = {
+			width: settings.width,
+			height: settings.height,
+			diffWidth: Math.floor(settings.width / 3),
+			diffHeight: Math.floor(settings.height / 3),
+		}
+
 		if (
-			!test &&
-			isAndroid &&
 			capabilities.focusMode &&
 			capabilities.focusDistance &&
 			capabilities.zoom &&
 			capabilities.whiteBalanceMode &&
 			capabilities.exposureMode &&
 			capabilities.iso &&
+			capabilities.exposureTime &&
 			capabilities.colorTemperature
 		) {
+			let maxExposure = capabilities.exposureTime.max
+			let iso = capabilities.iso.min
+
+			if (maxExposure >= 5000) {
+				// @ts-ignore
+				exposureTime.current = 5000
+				iso = Math.min(1600, capabilities.iso.max)
+			} else if (maxExposure >= 1000) {
+				// @ts-ignore
+				exposureTime.current = 1000
+				iso = Math.min(1600, capabilities.iso.max)
+			}
 			await track.applyConstraints({
 				advanced: [
 					{
 						exposureMode: "manual",
 						whiteBalanceMode: "manual",
 						focusMode: "manual",
+						iso: Math.min(iso, capabilities.iso.max),
 						colorTemperature: Math.max(3000, capabilities.colorTemperature.min),
 					},
 				],
@@ -418,163 +550,298 @@ function App() {
 			await track.applyConstraints({
 				advanced: [
 					{
-						exposureTime: Math.min(10000, capabilities.exposureTime.max),
+						exposureTime: exposureTime.current,
 						zoom: capabilities.zoom.min,
 						focusDistance: capabilities.focusDistance.max,
-						iso: Math.min(iso, capabilities.iso.max),
+						// @ts-ignore
 					},
 				],
 			})
-		} else if (capabilities.frameRate) {
+		} else if (capabilities.exposureMode) {
+			console.log("test")
+			// @ts-ignore
+			exposureTime.current = 1000
 			await track.applyConstraints({
 				advanced: [
 					{
-						exposureTime: 10000,
+						exposureMode: "manual",
 					},
 				],
 			})
 			await track.applyConstraints({
 				advanced: [
 					{
-						frameRate: Math.max(1, capabilities.frameRate.min),
+						exposureTime: exposureTime.current,
 					},
 				],
 			})
 		} else {
-			setDebugMessage(
-				"Sorry your device does not support the correct capture settings"
-			)
-			stopStreamedVideo()
+			// @ts-ignore
+			exposureTime.current = 1000
 		}
+	}
 
-		setTimeout(() => console.log("Settings: ", track.getSettings()), 10000)
+	async function startRecording() {
+		setIsRecording(true)
+		const stream = streamRef.current
+		// @ts-ignore
+		console.log({ stream })
+		// @ts-ignore
+		const [track] = stream.getVideoTracks()
+		console.log({ track })
+
+		document.createElement("canvas")
+
+		setTimeout(() => {
+			const settings = track.getSettings()
+			if (!settings.exposureTime && settings.frameRate) {
+				console.log({ stream })
+				//@ts-ignore
+				exposureTime.current = Math.round(10000 / settings.frameRate)
+			}
+			// exposureTime.current = settings.frameRate
+			console.log("Settings: ", settings)
+		}, 5000)
+		// @ts-ignore
 		// eslint-disable-next-line
 		const readable = new MediaStreamTrackProcessor(track).readable
 
+		// Emulated exposure time (stacking 1600 ISO frames)
+		const EXPOSURE_TIME = 50000
 		// vars to control our read loop
-		let last = 0
+		// @ts-ignore
+		let framesPerFourSeconds = Math.round(EXPOSURE_TIME / exposureTime.current)
+		let fullcount = 0
+		let last
 		let frameCount = 0
 		let group = new Date().toString()
 		const queuingStrategy = new CountQueuingStrategy({ highWaterMark: 1 })
-
-		// let canvasA = document.getElementById("debug")
-		let canvasA = new OffscreenCanvas(100, 1)
-		let canvasB = new OffscreenCanvas(100, 1)
-
-		const ctx = canvasA.getContext("2d", { willReadFrequently: true })
-		// let canvasWorkerA = canvasA.transferControlToOffscreen()
-		// navigator.serviceWorker.controller.postMessage({ canvasA: canvasWorkerA }, [
-		// 	canvasWorkerA,
-		// ])
-		let bitmapLastvisible
-
+		console.log({ framesPerFourSeconds })
+		// @ts-ignore
+		let lightenContext
+		// @ts-ignore
+		let differenceContext
+		// @ts-ignore
+		// @ts-ignore
+		let firestoreContext
+		const START_FRAME = 5
+		let frameRecorded = 0
+		let count = -START_FRAME - 1
+		// const sw = await navigator.serviceWorker.ready
+		// const serviceWorker = sw.active
 		const writableStream = new WritableStream(
 			{
-				write: async (frame) => {
-					let startAlgo = Date.now()
+				write: (frame) => {
 					frameCount++
-					console.log(frameCount)
-					if (frameCount === 6) {
-						const bitmap = await createImageBitmap(frame)
-						let width = bitmap.width / 3
-						let height = bitmap.height / 3
-						canvasA.width = width
-						canvasA.height = height
-						ctx.globalCompositeOperation = "difference"
-					}
-					if (frameCount > 2 && frame.timestamp > last) {
-						if (frameCount > 6) {
-							const bitmap = await createImageBitmap(frame)
-							let width = bitmap.width / 3
-							let height = bitmap.height / 3
-							if (!bitmapLastvisible) {
-								bitmapLastvisible = bitmap
-								ctx.drawImage(bitmapLastvisible, 0, 0, width, height)
-							} else {
-								console.log("drawing against ref")
-								ctx.clearRect(0, 0, width, height)
+					count++
+					if (frameCount === START_FRAME) {
+						console.log("START_FRAME")
+						last = frame.timestamp
+						frame.close()
 
-								ctx.drawImage(bitmapLastvisible, 0, 0, width, height)
-								ctx.drawImage(bitmap, 0, 0, width, height)
-							}
-							console.log(ctx.globalCompositeOperation)
-
-							const imageData = ctx.getImageData(0, 0, width, height)
-							if (frameCount > 7) {
-								const { longestObject } = lineAlgorithm(imageData)
-								// if (longestObject.size > 5) {
-								// 	bitmapLastvisible = bitmap
-								// }
-								if (longestObject.size > 10 && longestObject.size < 500) {
-									console.log("OBJECT FOUND, PUSHING BMP")
-									imageBMP.current.push({
-										bitmap,
-										date: new Date(),
-										longestObject,
-									})
-									canvasB.width = bitmap.width
-									canvasB.height = bitmap.height
-									const ctxB = canvasB.getContext("2d")
-									ctxB.drawImage(bitmap, 0, 0, bitmap.width, bitmap.height)
-
-									canvasB
-										.convertToBlob({ type: "image/jpeg", quality: 0.95 })
-										.then(async (res) => {
-											var imagesRef = ref(
-												storageRef,
-												`${group}/${new Date().toString()}`
-											)
-											await uploadBytes(imagesRef, res)
-											console.log(
-												`uploaded to firebase ${group}/${new Date().toString()}`
-											)
-										})
-								}
-							}
-						}
-						// last = frame.timestamp
-						// if (longestObject.size > 10) {
-						// 	imageBMP.current.push({
-						// 		bitmap,
-						// 		time: new Date(),
-						// 		longestObject,
-						// 	})
-						// 	console.log(`${last} pushed image`)
-						// }
-						// imageBMP.current.push({
-						// 	bitmap: bitmap,
-						// 	date: new Date(),
-						// 	longestObject: {
-						// 		istart: 0,
-						// 		iend: 0,
-						// 		jstart: 0,
-						// 		jend: 0,
-						// 		size: 0,
+						// @ts-ignore
+						// serviceWorker.postMessage(
+						// 	{
+						// 		width: bitmap.width,
+						// 		height: bitmap.height,
+						// 		diffWidth,
+						// 		diffHeight,
 						// 	},
-						// })
-						// navigator.serviceWorker.controller.postMessage(
-						// 	{ bitmap, group },
 						// 	[bitmap]
 						// )
+						//@ts-ignore
+						offScreenCanvasLighten.current = document.createElement("canvas")
+						// @ts-ignore
+						offScreenCanvasLighten.current.width = videoDimensions.current.width
+						// @ts-ignore
+						offScreenCanvasLighten.current.height =
+							videoDimensions.current.height
+						//@ts-ignore
+						offScreenCanvasDifference.current = document.createElement("canvas")
+						// @ts-ignore
+						offScreenCanvasDifference.current.width =
+							videoDimensions.current.diffWidth
+						// @ts-ignore
+						offScreenCanvasDifference.current.height =
+							videoDimensions.current.diffHeight
+						// offScreenCanvasDifference.current = new OffscreenCanvas(diffWidth, diffHeight)
 
-						// }
+						// //@ts-ignore
+						// offScreenCanvasFirestore.current.width = bitmap.width
+						// //@ts-ignore
+						// offScreenCanvasFirestore.current.height = bitmap.height
+						//@ts-ignore
+						lightenContext = offScreenCanvasLighten.current.getContext("2d", {
+							willReadFrequently: true,
+						})
+						lightenContext.globalCompositeOperation =
+							// @ts-ignore
+							exposureTime.current < 10000 ? "lighter" : "lighten"
+						//@ts-ignore
+						differenceContext = offScreenCanvasDifference.current.getContext(
+							"2d",
+							{ willReadFrequently: true }
+						)
+						differenceContext.globalCompositeOperation = "difference"
 
-						// 	// } else {
-						// 	// 	imageBMP.current.push(bitmap)
-						// 	// 	console.log(`${last} pushed image`)
-						// 	// }
-						// 	// navigator.serviceWorker.controller.postMessage({
-						// 	// 	bitmap,
-						// 	// 	group: datestring,
-						// 	// })
+						// firestoreContext = offScreenCanvasFirestore.current.getContext("2d")}
 
-						setPhotosSaved(imageBMP.current.length)
-						setFramesCaptured(frameCount - 7)
+						// 	// Startup frames
+						count++
+					} else if (
+						frameCount > START_FRAME &&
+						frame.timestamp > last &&
+						count % framesPerFourSeconds !== 0 &&
+						!isProcessing.current
+					) {
+						console.log("DRAW")
+						// @ts-ignore
+						let startAlgo = Date.now()
+						last = frame.timestamp
+						const bitmap = frame
+						// bmpStack.current.push(bitmap)
+						console.log({ differenceContext, lightenContext })
+						differenceContext.drawImage(
+							bitmap,
+							0,
+							0,
+							videoDimensions.current.diffWidth,
+							videoDimensions.current.diffHeight
+						)
+						lightenContext.drawImage(bitmap, 0, 0)
+						bitmap.close()
+						console.log(`time taken =  ${Date.now() - startAlgo}`)
+					} else if (
+						frameCount > START_FRAME &&
+						frame.timestamp > last &&
+						count % framesPerFourSeconds === 0 &&
+						!isProcessing.current
+					) {
+						console.log("COUNT % FRAMECOUNT")
+						isProcessing.current = true
+						fullcount++
+						frameRecorded++
+						setFramesCaptured(frameRecorded)
+						const { width, height, diffWidth, diffHeight } =
+							videoDimensions.current
+
+						differenceContext.drawImage(frame, 0, 0, diffWidth, diffHeight)
+						lightenContext.drawImage(frame, 0, 0)
+
+						frame.close()
+
+						const date = new Date()
+						const lightenCanvas = offScreenCanvasLighten.current
+						// @ts-ignore
+						const differenceCanvas = offScreenCanvasDifference.current
+						// console.log(differenceContext)
+						const imageData = differenceContext.getImageData(
+							0,
+							0,
+							diffWidth,
+							diffHeight
+						)
+						const { longestObject } = lineAlgorithm(imageData)
+						console.log({ longestObject })
+						// Streak found, create final image
+						if (true) {
+							// if (longestObject.size > 5 && longestObject.size < 500) {
+							setPhotosSaved(imageJpeg.current.length)
+
+							if (hasDetectionAlarm) {
+								dingSound.play()
+							}
+							var zeroth = {}
+							let exif = {}
+							let gps = {}
+							exif[piexif.ExifIFD.DateTimeOriginal] = format(
+								new Date(date),
+								"yyyy:MM:dd HH:mm:SS"
+							)
+							exif[piexif.ExifIFD.ExposureTime] = "4 seconds"
+							exif[36880] = "+08:00"
+							var lat = -32.05
+							var lng = 115.9
+							gps[piexif.GPSIFD.GPSLatitudeRef] = lat < 0 ? "S" : "N"
+							gps[piexif.GPSIFD.GPSLatitude] =
+								piexif.GPSHelper.degToDmsRational(lat)
+							gps[piexif.GPSIFD.GPSLongitudeRef] = lng < 0 ? "W" : "E"
+							gps[piexif.GPSIFD.GPSLongitude] =
+								piexif.GPSHelper.degToDmsRational(lng)
+							var exifObj = { "0th": zeroth, Exif: exif, GPS: gps }
+							var exifbytes = piexif.dump(exifObj)
+
+							//@ts-ignore
+							setPhotosSaved(imageJpeg.current.length)
+							//@ts-ignore
+							lightenCanvas.toBlob(
+								(blob) => {
+									var reader = new FileReader()
+									reader.onload = function (e) {
+										//@ts-ignore
+										var jpegData = piexif.insert(exifbytes, e.target.result)
+										console.log("pushing jpeg")
+										//@ts-ignore
+										var imagesRef = ref(
+											storageRef,
+											`${group}/${new Date(date).toString()}`
+										)
+										uploadString(imagesRef, jpegData, "data_url")
+										console.log(
+											`uploaded to firebase ${group}/${new Date(
+												date
+											).toString()}`
+										)
+
+										// @ts-ignore
+										imageJpeg.current.push({
+											jpeg: jpegData,
+											date,
+											longestObject,
+										})
+
+										// reset canvases
+										lightenContext.globalCompositeOperation = "source-over"
+										differenceContext.globalCompositeOperation = "source-over"
+										//@ts-ignore
+										lightenContext.clearRect(0, 0, width, height)
+										//@ts-ignore
+										differenceContext.clearRect(0, 0, diffWidth, diffHeight)
+
+										lightenContext.globalCompositeOperation =
+											// @ts-ignore
+											exposureTime.current < 10000 ? "lighter" : "lighten"
+										differenceContext.globalCompositeOperation = "difference"
+										count = 0
+										isProcessing.current = false
+									}
+									reader.readAsDataURL(blob)
+								},
+								"image/jpeg",
+								0.95
+							)
+						} else {
+							fullcount++
+							// reset canvases
+							lightenContext.globalCompositeOperation = "source-over"
+							differenceContext.globalCompositeOperation = "source-over"
+							//@ts-ignore
+							lightenContext.clearRect(0, 0, width, height)
+							//@ts-ignore
+							differenceContext.clearRect(0, 0, diffWidth, diffHeight)
+
+							lightenContext.globalCompositeOperation =
+								// @ts-ignore
+								exposureTime.current < 10000 ? "lighter" : "lighten"
+							differenceContext.globalCompositeOperation = "difference"
+							count = 0
+							isProcessing.current = false
+						}
+					} else {
+						last = frame.timestamp
+						frame.close()
 					}
-					// console.log(`Time taken: ${Date.now() - startAlgo}`)
-					// browser only seems to let you have 3 frames open
-					frame.close()
-					// setTimeout(() => frame.close(), 500)
+					// @ts-ignore
 				},
 				close: () => console.log("stream closed"),
 				abort: () => console.log("stream aborted"),
@@ -586,17 +853,17 @@ function App() {
 
 	async function stopStreamedVideo() {
 		const videoPreview = document.querySelector("#video-preview")
+		// @ts-ignore
 		videoPreview.srcObject = null
 		const stream = streamRef.current
 
+		// @ts-ignore
 		const videoTracks = stream.getVideoTracks()
-
+		console.log("stopping video")
 		videoTracks.forEach((track) => {
 			track.stop()
 		})
 		setIsRecording(false)
-		onOpen()
-		sleep(1000)
 		setIsFinished(true)
 	}
 
@@ -609,37 +876,39 @@ function App() {
 	})
 
 	const group = getRootProps()
-	const dingSound = new Audio(sound)
 
-	function lighterImageStackTest() {
+	// @ts-ignore
+	// @ts-ignore
+	async function lighterImageStackTest() {
 		const images = [
 			image1,
 			image2,
 			image3,
-			image4,
-			image5,
-			image6,
-			image7,
-			image8,
-			image9,
+			// image4,
+			// image5,
+			// image6,
+			// image7,
+			// image8,
+			// image9,
 		]
 
 		const canvas = document.getElementById("debug")
 
-		Promise.all(images.map(loadImage))
-			.then((imgs) => Promise.all(imgs.map((a) => createImageBitmap(a))))
-			.then((x) => {
-				x.map((x) => {
-					canvas.width = 800
-					canvas.height = 1200
-					const ctx = canvas.getContext("2d")
-					ctx.globalCompositeOperation = "lighten"
-					console.log(ctx)
-					console.log(x)
-					ctx.drawImage(x, 0, 0)
-				})
-				console.log("Done")
-			})
+		const imgs = await Promise.all(images.map(loadImage))
+		const bmps = await Promise.all(imgs.map((a) => createImageBitmap(a)))
+		// @ts-ignore
+		canvas.width = bmps[0].width
+		// @ts-ignore
+		canvas.height = bmps[0].height
+		bmps.map((x) => {
+			// @ts-ignore
+			const ctx = canvas.getContext("2d")
+			ctx.globalCompositeOperation = "lighten"
+
+			ctx.drawImage(x, 0, 0)
+		})
+		console.log("Done")
+
 		// 	const imageEl = new Image()
 
 		// 	// Wait for the sprite sheet to load
@@ -654,7 +923,7 @@ function App() {
 	useEffect(() => {
 		if (
 			selectedTimer === TIMER_VALUES.image_limit &&
-			framesCaptured === numberOfImages
+			framesCaptured === numberOfImages * 4
 		) {
 			stopStreamedVideo()
 			if (hasAlarm) {
@@ -663,33 +932,41 @@ function App() {
 		}
 	}, [framesCaptured])
 
+	// @ts-ignore
 	let imageUrls = [image1, image2]
 	class ImagePreview extends Component {
 		componentDidMount() {
 			var canvas = document.getElementById(
 				`suggested-images-${this.props.index}`
 			)
+			// @ts-ignore
 			var context = canvas.getContext("2d")
-			const { longestObject, bitmap } = this.props
-			console.log({ longestObject, bitmap })
-			if (bitmap && longestObject) {
-				context.drawImage(
-					bitmap,
-					Math.min(
-						bitmap.width - 300,
-						Math.max(0, longestObject.jstart * 3 - 100)
-					),
-					Math.min(
-						bitmap.height - 292,
-						Math.max(0, longestObject.istart * 3 - 100)
-					),
-					300,
-					292,
-					0,
-					0,
-					300,
-					292
-				)
+			const { longestObject, jpegUrl } = this.props
+			if (jpegUrl && longestObject) {
+				var imageObj = new Image()
+
+				imageObj.onload = function () {
+					context.drawImage(
+						this,
+						Math.min(
+							//@ts-ignore
+							this.width - 300,
+							Math.max(0, longestObject.jstart * 3 - 100)
+						),
+						Math.min(
+							//@ts-ignore
+							this.height - 292,
+							Math.max(0, longestObject.istart * 3 - 100)
+						),
+						300,
+						292,
+						0,
+						0,
+						300,
+						292
+					)
+				}
+				imageObj.src = jpegUrl
 			}
 			// load image from data url
 			// var imageObj = new Image()
@@ -715,82 +992,120 @@ function App() {
 		setCheckedItems({ ...checkedItems, [i]: e.target.checked })
 	}
 
-	function testCompareImages() {
+	// @ts-ignore
+	async function testCompareImages() {
 		const images = [
 			image1,
 			image2,
 			image3,
 			image4,
-			image5,
-			image6,
-			image7,
-			image8,
-			image9,
-			test3,
+			// image5,
+			// image6,
+			// image7,
+			// image8,
+			// image9,
 		]
 
 		const canvas = document.getElementById("debug")
-		const ctx = canvas.getContext("2d", { willReadFrequently: true })
+		// @ts-ignore
+		const ctx = canvas.getContext("2d")
 
+		// setup
+		const img = await loadImage(images[0])
+		const bitmapRef = await createImageBitmap(img)
+
+		const diffWidth = bitmapRef.width / DOWNSAMPLE
+		const diffHeight = bitmapRef.height / DOWNSAMPLE
+
+		// @ts-ignore
+		offScreenCanvasLighten.current.width = bitmapRef.width
+		// @ts-ignore
+		offScreenCanvasLighten.current.height = bitmapRef.height
+
+		// @ts-ignore
+		offScreenCanvasDifference.current.width = diffWidth
+		// @ts-ignore
+		offScreenCanvasDifference.current.height = diffHeight
+
+		// @ts-ignore
+		offScreenCanvasFirestore.current.width = bitmapRef.width
+		// @ts-ignore
+		offScreenCanvasFirestore.current.height = bitmapRef.height
+
+		// @ts-ignore
+		const lightenContext = offScreenCanvasLighten.current.getContext("2d", {
+			willReadFrequently: true,
+		})
+		lightenContext.globalCompositeOperation = "lighten"
+
+		// @ts-ignore
+		const differenceContext = offScreenCanvasDifference.current.getContext(
+			"2d",
+			{ willReadFrequently: true }
+		)
+		differenceContext.globalCompositeOperation = "difference"
+
+		// @ts-ignore
+		// @ts-ignore
+		const firestoreContext = offScreenCanvasFirestore.current.getContext("2d")
+		imageJpeg.current = []
+		// Process images
 		Promise.all(images.map(loadImage))
 			.then((imgs) => Promise.all(imgs.map((a) => createImageBitmap(a))))
-			.then((x) => {
+			.then(async (x) => {
 				const startAlgo = Date.now()
-				let imageData
 
-				let width = Math.floor(x[0].width / 3)
-				let height = Math.floor(x[0].height / 3)
+				// @ts-ignore
+				// @ts-ignore
+				x.map((bitmap, i) => {
+					// return onBitmap(
+					// 	bitmap,
+					// 	i,
+					// 	new Date(),
+					// 	startAlgo,
+					// 	lightenContext,
+					// 	differenceContext
+					// )
+				})
 
-				canvas.width = width
-				canvas.height = height
+				await sleep(1000)
+				console.log(imageJpeg.current)
+				if (imageJpeg.current.length > 0) {
+					console.log(imageJpeg.current)
+					// @ts-ignore
+					const imgSrc = imageJpeg.current[0].jpeg
 
-				console.log("Should Pass")
-				ctx.drawImage(x[1], 0, 0, width, height)
-				imageData = ctx.getImageData(0, 0, width, height)
-				console.log(lineAlgorithm(imageData))
+					var img = document.getElementById("debugImg")
+					// @ts-ignore
+					img.width = x[0].width
+					// @ts-ignore
+					img.height = x[0].height
+					// @ts-ignore
+					img.src = imgSrc
+					// @ts-ignore
+					ctx.drawImage(imageJpeg.current[0].difference, 0, 0)
+				}
 
-				// console.log("Should Pass")
-				// ctx.drawImage(x[2], 0, 0, width, height)
-				// imageData = ctx.getImageData(0, 0, width, height)
-				// console.log(lineAlgorithm(imageData))
-
-				// console.log("Should Pass")
-				// ctx.drawImage(x[3], 0, 0, width, height)
-				// imageData = ctx.getImageData(0, 0, width, height)
-				// console.log(lineAlgorithm(imageData))
-
-				// console.log("Should Pass")post
-				// ctx.drawImage(x[4], 0, 0, width, height)
-				// imageData = ctx.getImageData(0, 0, width, height)
-				// console.log(lineAlgorithm(imageData))
-
-				// console.log("Should Pass")
-				// ctx.drawImage(x[5], 0, 0, width, height)
-				// imageData = ctx.getImageData(0, 0, width, height)
-				// console.log(lineAlgorithm(imageData))
-
-				// console.log("Should Fail")
-				// ctx.drawImage(x[8], 0, 0, width, height)
-				// imageData = ctx.getImageData(0, 0, width, height)
-				// console.log(lineAlgorithm(imageData))
-
-				// console.log("Done")
 				const endAlgo = Date.now()
 				console.log({ time: endAlgo - startAlgo })
 			})
 	}
 
+	// @ts-ignore
 	async function testLineAlgorithm() {
 		const startAlgo = Date.now()
 		const imageA = await loadImage(image1)
 		console.log("LINE IS ~52px (/3 = ~17.3")
 		const canvas = document.getElementById("debug")
+		// @ts-ignore
 		const ctx = canvas.getContext("2d", {
 			willReadFrequently: true,
 		})
 		let width = imageA.width / 3
 		let height = imageA.height / 3
+		// @ts-ignore
 		canvas.width = width
+		// @ts-ignore
 		canvas.height = height
 
 		let imageData
@@ -798,40 +1113,39 @@ function App() {
 		imageData = ctx.getImageData(0, 0, width, height)
 		const { longestObject } = lineAlgorithm(imageData, true)
 		console.log(longestObject)
+		// @ts-ignore
 		const bitmap = await createImageBitmap(imageA)
 
-		imageBMP.current.push({
-			bitmap,
-			date: new Date(),
-			longestObject,
-		})
-		console.log(imageBMP.current)
 		console.log(`Time taken: ${Date.now() - startAlgo}`)
-		onOpen()
+		onOpenGallery()
 	}
-
+	console.log({ hasAlarm, hasDetectionAlarm })
 	return (
 		<div className="App">
 			<header className="App-header">
 				<Modal
-					isOpen={isOpen}
+					isOpen={isGalleryOpen}
 					scrollBehavior="inside"
 					onClose={() => {
-						onClose()
+						onCloseGallery()
 						var canvas = document.getElementById("download")
+						// @ts-ignore
 						var context = canvas.getContext("2d")
+						// @ts-ignore
 						context.clearRect(0, 0, canvas.width, canvas.height)
+						// @ts-ignore
 						canvas.width = 0
+						// @ts-ignore
 						canvas.height = 0
 					}}
 				>
 					<ModalOverlay />
 					<ModalContent>
-						<ModalHeader>{`Suggested Photos ${imageBMP.current.length} / ${framesCaptured}`}</ModalHeader>
+						<ModalHeader>{`Suggested Photos ${imageJpeg.current.length} / ${framesCaptured}`}</ModalHeader>
 						<ModalCloseButton />
 						<ModalBody>
 							<Stack spacing={5} id="suggestedFrames" width="100%">
-								{imageBMP.current.map(({ bitmap, longestObject }, i) => {
+								{imageJpeg.current.map(({ jpeg, longestObject }, i) => {
 									return (
 										<Flex key={`checkbox-${i}`}>
 											<Checkbox
@@ -854,7 +1168,7 @@ function App() {
 												>
 													<ImagePreview
 														height="296px"
-														bitmap={bitmap}
+														jpegUrl={jpeg}
 														longestObject={longestObject}
 														index={i}
 													/>
@@ -869,11 +1183,15 @@ function App() {
 							<Button
 								variant="ghost"
 								onClick={() => {
-									onClose()
+									onCloseGallery()
 									var canvas = document.getElementById("download")
+									// @ts-ignore
 									var context = canvas.getContext("2d")
+									// @ts-ignore
 									context.clearRect(0, 0, canvas.width, canvas.height)
+									// @ts-ignore
 									canvas.width = 0
+									// @ts-ignore
 									canvas.height = 0
 								}}
 								mr={3}
@@ -883,48 +1201,24 @@ function App() {
 							<Button
 								colorScheme="blue"
 								isDisabled={
-									imageBMP.current.length === 0 ||
-									!imageBMP.current.find(
+									imageJpeg.current.length === 0 ||
+									!imageJpeg.current.find(
 										(_, i) =>
 											checkedItems[i] === undefined || checkedItems[i] === true
 									)
 								}
 								onClick={() => {
 									var canvas = document.getElementById("download")
+									// @ts-ignore
+									// @ts-ignore
 									var context = canvas.getContext("2d")
-									imageBMP.current.map(({ bitmap, date }, i) => {
+									imageJpeg.current.map(({ jpeg, date }, i) => {
 										if (checkedItems[i] == null || checkedItems[i] === true) {
-											canvas.width = bitmap.width
-											canvas.height = bitmap.height
-											context.drawImage(bitmap, 0, 0)
 											var anchor = document.createElement("a")
-											const jpegData = canvas.toDataURL("image/jpeg")
-
-											var zeroth = {}
-											var exif = {}
-											var gps = {}
-											console.log(new Date())
-											exif[piexif.ExifIFD.DateTimeOriginal] = format(
-												new Date(date),
-												"yyyy:MM:dd HH:mm:SS"
-											)
-											exif[piexif.ExifIFD.ExposureTime] = 4
-											exif[36880] = "+08:00"
-											var lat = -32.05
-											var lng = 115.9
-											gps[piexif.GPSIFD.GPSLatitudeRef] = lat < 0 ? "S" : "N"
-											gps[piexif.GPSIFD.GPSLatitude] =
-												piexif.GPSHelper.degToDmsRational(lat)
-											gps[piexif.GPSIFD.GPSLongitudeRef] = lng < 0 ? "W" : "E"
-											gps[piexif.GPSIFD.GPSLongitude] =
-												piexif.GPSHelper.degToDmsRational(lng)
-											var exifObj = { "0th": zeroth, Exif: exif, GPS: gps }
-											var exifbytes = piexif.dump(exifObj)
-
-											var newJpeg = piexif.insert(exifbytes, jpegData)
-											anchor.href = newJpeg
+											anchor.href = jpeg
 											anchor.download = `${new Date(date)
 												.toString()
+												// @ts-ignore
 												.replaceAll(" ", "_")}.jpg`
 											anchor.click()
 										}
@@ -936,263 +1230,336 @@ function App() {
 						</ModalFooter>
 					</ModalContent>
 				</Modal>
-				<Flex align="center" width="100%">
-					<img src={logo} className="App-logo" alt="logo" />
-					<Heading fontSize="4xl" colorScheme="blue">
-						SSA 224.2
-					</Heading>
-				</Flex>
-				<Text color="InfoText" fontSize="sm">
-					{debugMessage}
-				</Text>
-				{/* <Button
-					colorScheme="blue"
-					onClick={() => {
-						const imageA = new Image()
-						const imageB = new Image()
-
-						let imageABitmap
-						let imageBBitmap
-
-						// Wait for the sprite sheet to load
-						imageA.onload = async () => {
-							const bitmap = await createImageBitmap(imageA)
-							imageABitmap = bitmap
-							console.log({ bitmap })
-							if (imageABitmap && imageBBitmap) {
-								let res = compareImages(imageABitmap, imageBBitmap, true)
-								if (res.result) {
-									setDebugMessage(`Passed image comparison test ${res.score}`)
-								} else {
-									setDebugMessage("Failed image comparison test")
-								}
-							}
-						}
-						imageA.src = image1
-
-						imageB.onload = async () => {
-							const bitmap = await createImageBitmap(imageB)
-							imageBBitmap = bitmap
-							console.log({ bitmap })
-							if (imageABitmap && imageBBitmap) {
-								let res = compareImages(imageABitmap, imageBBitmap, true)
-								if (res) {
-									setDebugMessage("Passed image comparison test")
-								} else {
-									setDebugMessage("Failed image comparison test")
-								}
-							}
-						}
-						imageB.src = image2
+				<Modal
+					isOpen={isSettingsOpen}
+					onClose={() => {
+						onCloseSettings()
 					}}
 				>
-					Test Compare Images
-				</Button> */}
-				<Box
-					borderWidth="1px"
-					borderRadius="lg"
-					width="100%"
-					minHeight={Math.min(480 / 2, VIEW_WIDTH / 2)}
+					<ModalOverlay />
+					<ModalContent>
+						<ModalHeader>{`Adjust Capture Settings`}</ModalHeader>
+						<ModalCloseButton />
+						<ModalBody>
+							<Stack {...group} p="4px">
+								{options.map((value) => {
+									const radio = getRadioProps({ value })
+									return (
+										<RadioCard key={value} {...radio}>
+											{value}
+										</RadioCard>
+									)
+								})}
+							</Stack>
+							{selectedTimer === TIMER_VALUES.duration && (
+								<NumberInput
+									my="8px"
+									step={5}
+									size="lg"
+									defaultValue={duration}
+									min={10}
+									max={1000}
+									w="100%"
+									color="blackAlpha.600"
+									// @ts-ignore
+									onChange={(e) => setDuration(e)}
+								>
+									<NumberInputField />
+									<NumberInputStepper>
+										<NumberIncrementStepper />
+										<NumberDecrementStepper />
+									</NumberInputStepper>
+								</NumberInput>
+							)}
+							{selectedTimer === TIMER_VALUES.image_limit && (
+								<NumberInput
+									my="8px"
+									step={5}
+									size="lg"
+									defaultValue={numberOfImages}
+									min={5}
+									max={1000}
+									w="100%"
+									color="blackAlpha.600"
+									onChange={(e) => setNumberOfImages(Number(e))}
+								>
+									<NumberInputField />
+									<NumberInputStepper>
+										<NumberIncrementStepper />
+										<NumberDecrementStepper />
+									</NumberInputStepper>
+								</NumberInput>
+							)}
+							<FormControl display="flex" alignItems="center">
+								<FormLabel
+									htmlFor="countdown"
+									mb="0"
+									color="#2D3748"
+									// @ts-ignore
+									onChange={({ target }) => setHasCountdown(target.checked)}
+									my="8px"
+								>
+									5 second timer before start
+								</FormLabel>
+								<Switch id="countdown" defaultChecked={hasCountdown} />
+							</FormControl>
+						</ModalBody>
+						<ModalFooter>
+							<Button
+								variant="ghost"
+								onClick={() => {
+									onCloseSettings()
+								}}
+								mr={3}
+							>
+								Close
+							</Button>
+						</ModalFooter>
+					</ModalContent>
+				</Modal>
+				<Modal
+					isOpen={isAlarmOpen}
+					onClose={() => {
+						onCloseAlarm()
+					}}
 				>
-					<video id="video-preview" autoPlay playsInline></video>
-					<audio />
-					{isRecording ? (
-						<></>
-					) : (
-						<Text colorScheme="blue">Image preview here</Text>
-					)}
-				</Box>
-				<HStack {...group} p="4px">
-					{options.map((value) => {
-						const radio = getRadioProps({ value })
-						return (
-							<RadioCard key={value} {...radio}>
-								{value}
-							</RadioCard>
-						)
-					})}
-				</HStack>
-				{selectedTimer === TIMER_VALUES.duration && (
-					<NumberInput
-						my="8px"
-						step={5}
-						size="lg"
-						defaultValue={duration}
-						min={10}
-						max={1000}
-						w="100%"
-						color="blackAlpha.600"
-						onChange={(e) => setDuration(e)}
-					>
-						<NumberInputField />
-						<NumberInputStepper>
-							<NumberIncrementStepper />
-							<NumberDecrementStepper />
-						</NumberInputStepper>
-					</NumberInput>
-				)}
-				{selectedTimer === TIMER_VALUES.image_limit && (
-					<NumberInput
-						my="8px"
-						step={5}
-						size="lg"
-						defaultValue={numberOfImages}
-						min={5}
-						max={1000}
-						w="100%"
-						color="blackAlpha.600"
-						onChange={(e) => setNumberOfImages(Number(e))}
-					>
-						<NumberInputField />
-						<NumberInputStepper>
-							<NumberIncrementStepper />
-							<NumberDecrementStepper />
-						</NumberInputStepper>
-					</NumberInput>
-				)}
-				{selectedTimer !== TIMER_VALUES.until_stopped && (
-					<FormControl
-						display="flex"
-						alignItems="center"
-						color="#2D3748"
-						onChange={({ target }) => setHasAlarm(target.value)}
-						my="8px"
-					>
-						<FormLabel htmlFor="alarm" mb="0">
-							Alarm when finished
-						</FormLabel>
-						<Switch id="alarm" defaultChecked isDisabled />
-					</FormControl>
-				)}
-				<FormControl display="flex" alignItems="center">
-					<FormLabel
-						htmlFor="countdown"
-						mb="0"
-						color="#2D3748"
-						onChange={({ target }) => setHasCountdown(target.value)}
-						my="8px"
-					>
-						5 second timer before start
-					</FormLabel>
-					<Switch id="countdown" defaultChecked isDisabled />
-				</FormControl>
-
-				{isRecording ? (
-					<Button
-						mt="5px"
-						colorScheme="blue"
-						variant="solid"
-						isDisabled={!isRecording}
-						onClick={(e) => {
-							setIsFinished(false)
-							stopStreamedVideo(e)
-						}}
-					>
-						Stop Recording
-					</Button>
+					<ModalOverlay />
+					<ModalContent>
+						<ModalHeader>{`Adjust Alarm`}</ModalHeader>
+						<ModalCloseButton />
+						<ModalBody>
+							<FormControl
+								display="flex"
+								alignItems="center"
+								color="#2D3748"
+								// @ts-ignore
+								onChange={({ target }) => {
+									//@ts-ignore
+									setHasAlarm(target.checked)
+								}}
+								my="8px"
+							>
+								<FormLabel htmlFor="alarm" mb="0">
+									Alarm when finished
+								</FormLabel>
+								<Switch id="alarm" defaultChecked={hasAlarm} />
+							</FormControl>
+							<FormControl
+								display="flex"
+								alignItems="center"
+								color="#2D3748"
+								// @ts-ignore
+								onChange={({ target }) => {
+									//@ts-ignore
+									setHasDetectionAlarm(target.checked)
+								}}
+								my="8px"
+							>
+								<FormLabel htmlFor="alarm" mb="0">
+									Alarm when detected streak
+								</FormLabel>
+								<Switch id="alarm" defaultChecked={hasDetectionAlarm} />
+							</FormControl>
+						</ModalBody>
+						<ModalFooter>
+							<Button
+								variant="ghost"
+								onClick={() => {
+									onCloseAlarm()
+								}}
+								mr={3}
+							>
+								Close
+							</Button>
+						</ModalFooter>
+					</ModalContent>
+				</Modal>
+				{showWebsite ? (
+					<></>
 				) : (
-					<Flex direction="column">
-						<Button
-							mt="5px"
-							colorScheme="blue"
-							variant="solid"
-							isDisabled={isRecording}
-							onClick={(e) => {
-								startRecording(e, true, 10000)
-								setIsFinished(false)
-								if (selectedTimer === TIMER_VALUES.duration) {
-									setTimeout(() => {
-										dingSound.play()
-										stopStreamedVideo()
-									}, (duration + 5) * 1000)
-								}
-							}}
-						>
-							Start Recording (Android Max)
-						</Button>
-						<Button
-							mt="5px"
-							colorScheme="blue"
-							variant="solid"
-							isDisabled={isRecording}
-							onClick={(e) => {
-								startRecording(e, true, 1600)
-								setIsFinished(false)
-								if (selectedTimer === TIMER_VALUES.duration) {
-									setTimeout(() => {
-										dingSound.play()
-										stopStreamedVideo()
-									}, (duration + 5) * 1000)
-								}
-							}}
-						>
-							Start Recording (Android 1600)
-						</Button>
-						<Button
-							mt="5px"
-							colorScheme="blue"
-							variant="solid"
-							isDisabled={isRecording}
-							onClick={(e) => {
-								startRecording(e, true, 100)
-								setIsFinished(false)
-								if (selectedTimer === TIMER_VALUES.duration) {
-									setTimeout(() => {
-										dingSound.play()
-										stopStreamedVideo()
-									}, (duration + 5) * 1000)
-								}
-							}}
-						>
-							Start Recording (Android 100)
-						</Button>
-						<Button
-							mt="5px"
-							ml="5px"
-							colorScheme="blue"
-							variant="solid"
-							isDisabled={isRecording}
-							onClick={(e) => {
-								e.preventDefault()
-								testLineAlgorithm()
-							}}
-						>
-							Test line Detection
-						</Button>
+					<Flex
+						alignItems="center"
+						width="100%"
+						height="64px"
+						px="16px"
+						mt="8px"
+					>
+						<img src={logo} className="App-logo" alt="logo" />
+						<Flex direction="column">
+							<Heading fontSize="2xl">SatTrack</Heading>
+							<Text fontSize="10px">v330.1</Text>
+						</Flex>
+						<Text maxWidth="320px" color="InfoText" fontSize="sm">
+							{debugMessage}
+						</Text>
 					</Flex>
 				)}
-				{/* <Button
-					mt="5px"
-					colorScheme="blue"
-					variant="solid"
-					isDisabled={isRecording}
-					onClick={(e) => {
-						e.preventDefault()
-						// lighterImageStackTest()
-						testCompareImages()
-					}}
+				{showWebsite ? (
+					<Box height="calc(100vh - 128px)" width="100vw">
+						<iframe
+							style={{
+								transform: "scale(0.8)",
+								transformOrigin: "0 0",
+							}}
+							className="frame"
+							height="125%"
+							width="125%"
+							src="https://d1e7enq0s1epae.cloudfront.net/"
+						/>
+					</Box>
+				) : (
+					<Flex
+						direction="column"
+						justify="center"
+						width="100%"
+						height="calc(100vh - 192px)"
+					>
+						<Flex justify="center" width="100%" height="100%">
+							<video
+								id="video-preview"
+								width="100%"
+								height="100%"
+								autoPlay
+								playsInline
+							></video>
+						</Flex>
+						<audio />
+						{hasPreview ? (
+							<></>
+						) : (
+							<Text colorScheme="blue">Image preview here</Text>
+						)}
+					</Flex>
+				)}
+				<Flex height="16px" align="center" justify="space-around" width="100%">
+					<Text height="16px" fontSize="sm" mr="16px">{`Exp 5s. ISO1600`}</Text>
+					<Text
+						height="16px"
+						fontSize="sm"
+					>{`Photos taken: ${photosSaved} / ${framesCaptured}`}</Text>
+				</Flex>
+				<Flex
+					align="center"
+					width="100%"
+					height="80px"
+					justify="space-between"
+					mx="8px"
+					marginBottom={"32px"}
 				>
-					Test compare Images
-				</Button> */}
-				{framesCaptured !== null && (
-					<Text fontSize="sm">{`Photos taken: ${framesCaptured}`}</Text>
-				)}
-				{photosSaved !== null && (
-					<Text fontSize="sm">{`Photos saved: ${photosSaved}`}</Text>
-				)}
-				{isFinished && (
+					<IconButton
+						aria-label="Show website for image analysis"
+						width="64px"
+						height="64px"
+						variant={"solid"}
+						padding="12px"
+						backgroundColor="transparent"
+						onClick={(e) => {
+							e.preventDefault()
+							if (showWebsite) {
+								setShowWebsite(false)
+								startCamera()
+							} else {
+								stopStreamedVideo()
+								setShowWebsite(true)
+							}
+						}}
+						icon={<UploadPhoto />}
+					/>
+					<IconButton
+						aria-label="Open Gallery of captured images"
+						width="64px"
+						height="64px"
+						padding="12px"
+						variant={"solid"}
+						backgroundColor="transparent"
+						onClick={(e) => {
+							e.preventDefault()
+							onOpenGallery()
+						}}
+						icon={<Pictures />}
+					/>
+
+					<IconButton
+						aria-label="Take photos"
+						width="102px"
+						height="102px"
+						variant={"solid"}
+						backgroundColor="transparent"
+						onClick={(e) => {
+							e.preventDefault()
+							let photoTimeOut
+							if (isRecording) {
+								stopStreamedVideo()
+								//@ts-ignore
+								if (photoTimeOut && photoTimeOut.clear) {
+									//@ts-ignore
+									photoTimeOut.clear()
+								}
+							} else {
+								startRecording()
+								setIsFinished(false)
+								if (selectedTimer === TIMER_VALUES.duration) {
+									photoTimeOut = setTimeout(() => {
+										if (hasAlarm) {
+											dingSound.play()
+										}
+										stopStreamedVideo()
+									}, (duration + 5) * 1000)
+								}
+							}
+						}}
+						icon={isRecording ? <ShutterRecording /> : <Shutter />}
+					/>
+					<IconButton
+						aria-label="Adjust settings"
+						width="64px"
+						height="64px"
+						padding="14px"
+						variant={"solid"}
+						backgroundColor="transparent"
+						onClick={(e) => {
+							e.preventDefault()
+							onOpenSettings()
+						}}
+						icon={<Settings />}
+					/>
+					<IconButton
+						aria-label="Adjust alarm"
+						width="64px"
+						height="64px"
+						padding="14px"
+						variant={"solid"}
+						backgroundColor="transparent"
+						onClick={(e) => {
+							e.preventDefault()
+							onOpenAlarm()
+						}}
+						icon={hasDetectionAlarm || hasAlarm ? <BellRinging /> : <BellOff />}
+					/>
+				</Flex>
+				<canvas id="download" height="0px"></canvas>
+				{/* 
+			
+				{/* {!serviceWorkerActive && <Text fontSize="sm">{`Starting up...`}</Text>} */}
+
+				{/* {isFinished && (
 					<Text
 						fontSize="sm"
 						colorScheme="red"
 					>{`Finished Recording Successfully`}</Text>
-				)}
-				<canvas id="worker" height="0px"></canvas>
-				<canvas id="download" height="0px"></canvas>
-				<canvas id="debug" height="800px" width="600px"></canvas>
+				)} */}
+				{/* 
+
 				<Flex justify="center" id="capturedFrames" w="100%">
-					<canvas id="debug2" height="800px" width="600px"></canvas>
-				</Flex>
-				<Flex direction="column" id="capturedFrames" w="480px"></Flex>
+					<canvas id="debug" height="600px" width="600px"></canvas>
+					<canvas id="debug2" height="600px" width="600px"></canvas>
+				</Flex> */}
+				{/* <canvas id="worker" height="0px"></canvas>
+			
+				<img id="debugImg" height="4032px" width="3024px" />
+
+			
+				<Flex direction="column" id="capturedFrames" w="480px"></Flex> */}
 			</header>
 		</div>
 	)
