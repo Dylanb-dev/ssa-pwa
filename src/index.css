@@ -33,9 +33,7 @@ p {
   justify-content: center;
   width: 100vw;
   margin: 0;
-  height: 100vh;
   padding: 0;
-  min-height: fill-available;
 }
 
 .App {
@@ -45,7 +43,6 @@ p {
   max-width: 480px;
   min-height: fill-available;
   width: 100%;
-  height: 100vh;
 }
 @media only screen and (max-width: 600px) {
   .App { max-width: 100vw; }
@@ -60,11 +57,10 @@ p {
 }
 
 .App-header {
-  min-height: 100vh;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
   font-size: calc(10px + 2vmin);
   color: white;
 }

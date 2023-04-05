@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React, { useState, useRef, useEffect, Component } from "react"
 import logo from "./logo.jpg"
 // @ts-ignore
@@ -1387,7 +1388,7 @@ function App() {
 						<img src={logo} className="App-logo" alt="logo" />
 						<Flex direction="column">
 							<Heading fontSize="2xl">SatTrack</Heading>
-							<Text fontSize="10px">v330.1</Text>
+							<Text fontSize="10px">v405.1</Text>
 						</Flex>
 						<Text maxWidth="320px" color="InfoText" fontSize="sm">
 							{debugMessage}
@@ -1395,7 +1396,7 @@ function App() {
 					</Flex>
 				)}
 				{showWebsite ? (
-					<Box height="calc(100vh - 128px)" width="100vw">
+					<Box width="100vw">
 						<iframe
 							style={{
 								transform: "scale(0.8)",
@@ -1412,7 +1413,6 @@ function App() {
 						direction="column"
 						justify="center"
 						width="100%"
-						height="calc(100vh - 192px)"
 					>
 						<Flex justify="center" width="100%" height="100%">
 							<video
@@ -1431,7 +1431,7 @@ function App() {
 						)}
 					</Flex>
 				)}
-				<Flex height="16px" align="center" justify="space-around" width="100%">
+				<Flex height="16px" align="center" justify="space-around" width="100%" mb="-8px">
 					<Text height="16px" fontSize="sm" mr="16px">{`Exp 5s. ISO1600`}</Text>
 					<Text
 						height="16px"
@@ -1444,7 +1444,7 @@ function App() {
 					height="80px"
 					justify="space-between"
 					mx="8px"
-					marginBottom={"32px"}
+					mb="36px"
 				>
 					<IconButton
 						aria-label="Show website for image analysis"
