@@ -1431,6 +1431,7 @@ function App() {
 						)}
 					</Flex>
 				)}
+				<Box>
 				<Flex height="16px" align="center" justify="space-around" width="100%" mb="-8px">
 					<Text height="16px" fontSize="sm" mr="16px">{`Exp 5s. ISO1600`}</Text>
 					<Text
@@ -1444,7 +1445,6 @@ function App() {
 					height="80px"
 					justify="space-between"
 					mx="8px"
-					mb="36px"
 				>
 					<IconButton
 						aria-label="Show website for image analysis"
@@ -1538,6 +1538,7 @@ function App() {
 					/>
 				</Flex>
 				<canvas id="download" height="0px"></canvas>
+				</Box>
 				{/* 
 			
 				{/* {!serviceWorkerActive && <Text fontSize="sm">{`Starting up...`}</Text>} */}
