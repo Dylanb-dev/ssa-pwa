@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "963000608298",
+    "project_id": "space-exposure-d0379",
+    "storage_bucket": "space-exposure-d0379.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:963000608298:android:79f68baaa54daa7df9c553",
+        "android_client_info": {
+          "package_name": "com.android.example.camera2.basic"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "963000608298-kg4gdkbp41jh70sjnepmmfu2ujt6s3ib.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAawAUDqszBrztO4GyHuQdwZyXrSn084-o"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "963000608298-kg4gdkbp41jh70sjnepmmfu2ujt6s3ib.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
