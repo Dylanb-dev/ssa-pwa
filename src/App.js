@@ -606,9 +606,11 @@ function App() {
 		// eslint-disable-next-line
 		const readable = new MediaStreamTrackProcessor(track).readable
 
+		// Emulated exposure time (stacking 1600 ISO frames)
+		const EXPOSURE_TIME = 50000
 		// vars to control our read loop
 		// @ts-ignore
-		let framesPerFourSeconds = Math.round(40000 / exposureTime.current)
+		let framesPerFourSeconds = Math.round(EXPOSURE_TIME / exposureTime.current)
 		let fullcount = 0
 		let last
 		let frameCount = 0
@@ -742,7 +744,8 @@ function App() {
 						const { longestObject } = lineAlgorithm(imageData)
 						console.log({ longestObject })
 						// Streak found, create final image
-						if (longestObject.size > 5 && longestObject.size < 500) {
+						if (true) {
+							// if (longestObject.size > 5 && longestObject.size < 500) {
 							setPhotosSaved(imageJpeg.current.length)
 
 							if (hasDetectionAlarm) {
@@ -1376,15 +1379,15 @@ function App() {
 				) : (
 					<Flex
 						alignItems="center"
-						justifyContent="center"
 						width="100%"
 						height="64px"
-						p="8px"
+						px="16px"
+						mt="8px"
 					>
 						<img src={logo} className="App-logo" alt="logo" />
 						<Flex direction="column">
 							<Heading fontSize="2xl">SatTrack</Heading>
-							<Text fontSize="10px">v323.1</Text>
+							<Text fontSize="10px">v330.1</Text>
 						</Flex>
 						<Text maxWidth="320px" color="InfoText" fontSize="sm">
 							{debugMessage}
@@ -1429,7 +1432,7 @@ function App() {
 					</Flex>
 				)}
 				<Flex height="16px" align="center" justify="space-around" width="100%">
-					<Text height="16px" fontSize="sm" mr="16px">{`Exp 4s. ISO1600`}</Text>
+					<Text height="16px" fontSize="sm" mr="16px">{`Exp 5s. ISO1600`}</Text>
 					<Text
 						height="16px"
 						fontSize="sm"
@@ -1448,6 +1451,7 @@ function App() {
 						width="64px"
 						height="64px"
 						variant={"solid"}
+						padding="12px"
 						backgroundColor="transparent"
 						onClick={(e) => {
 							e.preventDefault()
@@ -1465,6 +1469,7 @@ function App() {
 						aria-label="Open Gallery of captured images"
 						width="64px"
 						height="64px"
+						padding="12px"
 						variant={"solid"}
 						backgroundColor="transparent"
 						onClick={(e) => {
@@ -1476,8 +1481,8 @@ function App() {
 
 					<IconButton
 						aria-label="Take photos"
-						width="88px"
-						height="88px"
+						width="102px"
+						height="102px"
 						variant={"solid"}
 						backgroundColor="transparent"
 						onClick={(e) => {
@@ -1509,6 +1514,7 @@ function App() {
 						aria-label="Adjust settings"
 						width="64px"
 						height="64px"
+						padding="14px"
 						variant={"solid"}
 						backgroundColor="transparent"
 						onClick={(e) => {
@@ -1521,6 +1527,7 @@ function App() {
 						aria-label="Adjust alarm"
 						width="64px"
 						height="64px"
+						padding="14px"
 						variant={"solid"}
 						backgroundColor="transparent"
 						onClick={(e) => {

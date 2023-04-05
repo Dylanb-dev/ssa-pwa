@@ -24,11 +24,11 @@ import android.hardware.camera2.*
 import android.media.ExifInterface
 import android.media.Image
 import android.media.ImageReader
+import android.media.MediaPlayer
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.HandlerThread
-import android.text.Editable
 import android.util.Log
 import android.view.*
 import android.webkit.WebView
@@ -36,7 +36,6 @@ import android.widget.*
 import androidx.annotation.RequiresApi
 import androidx.core.graphics.drawable.toDrawable
 import androidx.core.net.toUri
-import androidx.core.view.WindowInsetsCompat
 import androidx.core.widget.doAfterTextChanged
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.Observer
@@ -56,16 +55,17 @@ import com.example.android.camera2.basic.databinding.FragmentCameraBinding
 import com.google.firebase.ktx.Firebase
 import com.google.firebase.storage.ktx.storage
 import com.google.firebase.storage.ktx.storageMetadata
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.*
 import org.json.JSONObject
 import org.json.JSONTokener
 import java.io.*
 import java.lang.Integer.parseInt
+import java.lang.Runnable
 import java.text.SimpleDateFormat
 import java.util.*
 import java.util.concurrent.ArrayBlockingQueue
+import java.util.concurrent.Executor
+import java.util.concurrent.TimeUnit
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.coroutines.suspendCoroutine
@@ -89,9 +89,6 @@ class CameraFragment : Fragment() {
     private var countDownTimer = true
     private var hasAlarm = false
     private var hasDetectionAlarm = false
-
-    private var photosTaken = 0
-    private var photosCaptured = 0
 
     /** AndroidX navigation arguments */
     private val args: CameraFragmentArgs by navArgs()
@@ -185,7 +182,7 @@ class CameraFragment : Fragment() {
             savedInstanceState: Bundle?
     ): View {
         _fragmentCameraBinding = FragmentCameraBinding.inflate(inflater, container, false)
-
+        _fragmentCameraBinding!!.textView3?.text = "Photos 0 / 0"
         val settings =  _fragmentCameraBinding!!.settings
         settings?.setOnClickListener {
 
@@ -302,6 +299,8 @@ class CameraFragment : Fragment() {
                 ViewGroup.LayoutParams.WRAP_CONTENT
             )
 
+            Log.d(TAG, "${popupWindow!!.isShowing}")
+
             popupWindow.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT));
             popupWindow.isOutsideTouchable = true
             popupWindow.showAtLocation(_fragmentCameraBinding!!.root, Gravity.CENTER, 0, 0);
@@ -339,26 +338,33 @@ class CameraFragment : Fragment() {
             popupWindow.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT));
             popupWindow.isOutsideTouchable = true
             popupWindow.showAtLocation(_fragmentCameraBinding!!.root, Gravity.CENTER, 0, 0);
-
+            val recyclerView: RecyclerView = popupView.findViewById(R.id.galleryRec)
+            val llm = LinearLayoutManager(requireContext())
+            llm.orientation = LinearLayoutManager.VERTICAL
+            recyclerView.layoutManager = llm
+            recyclerView.adapter = CustomAdapter(emptyArray())
 
             val directory = requireContext().filesDir
             val files: Array<File> = directory.listFiles()
             Log.d("Files", "Size: " + files.size)
             val bitmapArray: Array<Bitmap> = emptyArray()
             for (i in files.indices) {
-                Log.d("Files", "FileName:" + files[i].name)
+                Log.d("Files", "FilePath:${directory.toPath()}/${files[i].name}")
                 bitmapArray.plus(decodeBitmapPreview("${directory.toPath()}/${files[i].name}"))
             }
 
-            if(files.size > 0) {
 
-                val test = CustomAdapter(bitmapArray)
+            val deleteImages: Button = popupView.findViewById(R.id.deleteImages) as Button
+            deleteImages.setOnClickListener {
+                val storageDir = requireContext().filesDir
+                for (tempFile in storageDir.listFiles()) {
+                    tempFile.delete()
+                }
 
-                val recyclerView: RecyclerView = popupView.findViewById(R.id.galleryRec)
-                val llm = LinearLayoutManager(requireContext())
-                llm.orientation = LinearLayoutManager.VERTICAL
-                recyclerView.layoutManager = llm
-                recyclerView.adapter = test
+            }
+
+            if(files.isNotEmpty()) {
+                recyclerView.adapter = CustomAdapter(bitmapArray)
             }
 
         }
@@ -398,6 +404,7 @@ class CameraFragment : Fragment() {
                     width: Int,
                     height: Int) = Unit
 
+            @RequiresApi(Build.VERSION_CODES.P)
             override fun surfaceCreated(holder: SurfaceHolder) {
                 // Selects appropriate preview size and configures view finder
                 val previewSize = getPreviewOutputSize(
@@ -432,6 +439,7 @@ class CameraFragment : Fragment() {
      * - Starts the preview by dispatching a repeating capture request
      * - Sets up the still image capture listeners
      */
+    @RequiresApi(Build.VERSION_CODES.P)
     private fun initializeCamera() = lifecycleScope.launch(Dispatchers.Main) {
         // Open the selected camera
         camera = openCamera(cameraManager, args.cameraId, cameraHandler)
@@ -449,46 +457,234 @@ class CameraFragment : Fragment() {
         // Start a capture session using our open camera and list of Surfaces where frames will go
         session = createCaptureSession(camera, targets, cameraHandler)
 
+
         val captureRequest = camera.createCaptureRequest(
-                CameraDevice.TEMPLATE_PREVIEW).apply { addTarget(fragmentCameraBinding.viewFinder.holder.surface);
+            CameraDevice.TEMPLATE_PREVIEW).apply { addTarget(fragmentCameraBinding.viewFinder.holder.surface);
             set(CaptureRequest.JPEG_QUALITY, (90).toByte());
             set(CaptureRequest.LENS_FOCUS_DISTANCE, 0.0f);
-
+            set(CaptureRequest.SENSOR_EXPOSURE_TIME, 1000000000);
+            set(CaptureRequest.LENS_FOCUS_DISTANCE, 0.0f);
+            set(CaptureRequest.SENSOR_SENSITIVITY, 2000)
         }
 
         // This will keep sending the capture request as frequently as possible until the
         // session is torn down or session.stopRepeating() is called
         session.setRepeatingRequest(captureRequest.build(), null, cameraHandler)
 
-
         // Listen to the capture button
         fragmentCameraBinding.captureButton.setOnClickListener {
-
-//            // Disable click listener to prevent multiple requests simultaneously in flight
-//            it.isEnabled = false
-
             // Set to recording state
-
+            Log.d(TAG, "Starting recording...")
             if(it.isSelected) {
+                Log.d(TAG, "Stopping recording...")
                 isStopping = true
                 it.isSelected = false
+
             } else {
                 it.isSelected = true
+                // Start a new image queue
+                val imageQueue = ArrayBlockingQueue<Image>(IMAGE_BUFFER_SIZE)
+                imageReader.setOnImageAvailableListener({ reader ->
+                    val image = reader.acquireNextImage()
+                    Log.d(TAG, "Image available in queue: ${image.timestamp}")
+                    imageQueue.add(image)
+                }, imageReaderHandler)
 
-                // Perform I/O heavy operations in a different scope
-                lifecycleScope.launch(Dispatchers.IO) {
-                    takePhoto { result : Int ->
-                        Log.d(TAG, "Stopping recording...")
-                    }
+                var startTime = Date().time
+                val sdf = SimpleDateFormat("dd:M:yyyy_hh:mm:ss")
+                val startDate = sdf.format(Date())
 
-                    // Re-enable click listener after photo is taken
-                    it.post { it.isSelected = false }
+                val captureRequest = session.device.createCaptureRequest(
+                    CameraDevice.TEMPLATE_MANUAL).apply {
+                    addTarget(imageReader.surface);
+                    set(CaptureRequest.JPEG_QUALITY, (90).toByte());
+    //            set(CaptureRequest.CONTROL_AWB_MODE, CaptureRequest.CONTROL_AWB_MODE_AUTO);
+                    set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_OFF);
+                    set(CaptureRequest.SENSOR_EXPOSURE_TIME, 5000000000);
+                    set(CaptureRequest.LENS_FOCUS_DISTANCE, 0.0f);
+                    set(CaptureRequest.SENSOR_SENSITIVITY, 400)
+                }
+
+                photosTaken = 0
+
+                takePhoto(captureRequest) { _: Unit ->
+                    isStopping = false
+                    it.isSelected = false
+                }
             }
 
 
-            }
+//                // Perform I/O heavy operations in a different scope
+//                lifecycleScope.launch(Dispatchers.IO) {
+//
+//                    // Re-enable click listener after photo is taken
+//                    it.post { it.isSelected = false }
+//            }
+
+
+
         }
     }
+
+    private fun takePhoto(captureRequest:  CaptureRequest.Builder, onComplete: (Unit) -> Unit) {
+        session.capture(captureRequest.build(), object : CameraCaptureSession.CaptureCallback() {
+
+            override fun onCaptureStarted(
+                session: CameraCaptureSession,
+                request: CaptureRequest,
+                timestamp: Long,
+                frameNumber: Long) {
+                super.onCaptureStarted(session, request, timestamp, frameNumber)
+                fragmentCameraBinding.viewFinder.post(animationTask)
+            }
+
+            @RequiresApi(Build.VERSION_CODES.Q)
+            override fun onCaptureCompleted(
+                session2: CameraCaptureSession,
+                request: CaptureRequest,
+                result: TotalCaptureResult) {
+                super.onCaptureCompleted(session2, request, result)
+                val resultTimestamp = result.get(CaptureResult.SENSOR_TIMESTAMP)
+                Log.d(TAG, "Capture result received: $resultTimestamp")
+
+                val resString = result.get(CaptureResult.SENSOR_EXPOSURE_TIME)
+                Log.d(TAG, "Capture result exposure: $resString")
+                photosTaken++
+                Log.d(TAG, "isStopping: $isStopping")
+
+                fragmentCameraBinding!!.textView3?.text = "Photos 0 / $photosTaken"
+                if(!isStopping) {
+                    takePhoto(captureRequest, onComplete)
+                } else {
+                    onComplete(Unit)
+                }
+//                cont.resume(1)
+//                _fragmentCameraBinding!!.textView3?.text = "Photos saved ${photosCaptured} / ${photosTaken}"
+//
+//                // Loop in the coroutine's context until an image with matching timestamp comes
+//                // We need to launch the coroutine context again because the callback is done in
+//                //  the handler provided to the `capture` method, not in our coroutine context
+//                @Suppress("BlockingMethodInNonBlockingContext")
+//                lifecycleScope.launch(cont.context) {
+//                    while (true) {
+//                        // Dequeue images while timestamps don't match
+//                        val diffInMs: Long = Date().time - startTime
+//
+//                        val timeSinceStart: Long = TimeUnit.MILLISECONDS.toSeconds(diffInMs)
+//                        if(isStopping || photosTaken == numberOfPhotos || timeSinceStart >= durationTime) {
+//                            if(hasAlarm) {
+//                                playSound(requireContext())
+//                            }
+//                            Log.d(TAG, "Stop repeating")
+//                            session.stopRepeating()
+//                            break
+//                        }
+//                        val image = imageQueue.take()
+//                        if (image != null) {
+//
+//                            Log.d(TAG, "Image dequeued: ${image.timestamp}")
+//                            photosTaken++
+//
+//                            val buffer = image.planes[0].buffer.slice()
+//                            val bytes = ByteArray(buffer.remaining()).apply { buffer.get(this) }
+//                            val bmpImage: Bitmap =
+//                                BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+//                            Log.d(TAG, "${bmpImage.toString()}")
+//                            val width = bmpImage.width
+//                            val height = bmpImage.height
+//                            val downWidth = width / 3
+//                            val downHeight = height / 3
+//                            val smallBmp: Bitmap =
+//                                Bitmap.createScaledBitmap(bmpImage, downWidth, downHeight, false)
+//                            Log.d(TAG, "small bitmap ${smallBmp.toString()}")
+//
+//                            var pixels = IntArray(downWidth * downHeight)
+//                            smallBmp.getPixels(pixels, 0, downWidth, 0, 0, downWidth, downHeight)
+//
+//                            var imgData = ImageData(pixels, downWidth, downHeight)
+//
+//                            val center = (imgData.width / 2) * (imgData.height / 2)
+//                            fun brightness(pixel: Int) : Double {
+//                                return (Color.red(pixel) +
+//                                        Color.green(pixel) +
+//                                        Color.blue(pixel)) / 3.0
+//                            }
+//                            val listBright = listOf(
+//                                    brightness(pixels[center + 30]),
+//                                    brightness(pixels[center - 30]),
+//                                    brightness(pixels[center]),
+//                                    80.0)
+//                            val pixelScoreThreshold: Int = 5 + (listBright.minOrNull()?.toInt() ?: 10)
+//                            val rotation = relativeOrientation.value ?: 0
+//                            val mirrored = characteristics.get(CameraCharacteristics.LENS_FACING) ==
+//                                    CameraCharacteristics.LENS_FACING_FRONT
+//                            val exifOrientation = computeExifOrientation(rotation, mirrored)
+//
+//                            Log.d(TAG, "lineAlgorithm: $pixelScoreThreshold")
+//
+//
+//                            val res = lineAlgorithm(imgData, pixelScoreThreshold)
+//
+//                            val resObject = "{istart: ${res.istart}, iend: ${res.iend}, jstart: ${res.jstart}, jend: ${res.jend}, size: ${res.size}}"
+//
+//
+//                            val currentDate = sdf.format(Date())
+//
+//
+//                            Log.d(TAG, "resObject: $resObject")
+//
+////                            DEBUG
+////                            val highlightBitmap = createHighlightBitmap(smallBmp, pixelScoreThreshold)
+////                            writeBitmapToDisk(highlightBitmap, fileDir, "testPost.jpeg", exifOrientation, resObject)
+////                            writeBitmapToDisk(smallBmp, fileDir, "original.jpeg", exifOrientation, resObject)
+////                            val sq = drawSquareOnBitmap(smallBmp, res.jstart.toFloat(),
+////                               res.istart.toFloat(), res.jend.toFloat(), res.iend.toFloat())
+////                            writeBitmapToDisk(sq, fileDir, "selected.jpeg", exifOrientation, resObject)
+//
+//                            image.close()
+//                            if (res.size >= 9) {
+//                                photosCaptured++
+//
+//                                if(hasDetectionAlarm) {
+//                                    playSound(requireContext())
+//                                }
+//                                val fileDir = requireContext().filesDir
+//
+//                                val output = writeBitmapToDisk(bmpImage, fileDir, "$currentDate.jpeg", exifOrientation, resObject)
+//
+//                                val storageRef = Firebase.storage.reference;
+//                                val firebasePath = "${startDate}/${currentDate}.jpeg"
+//                                Log.e(TAG, firebasePath)
+//
+//                                val uploadTask = storageRef.child(
+//                                        firebasePath
+//                                    ).putFile(output.toUri(), storageMetadata {
+//                                        contentType = "image/jpeg"
+//                                    })
+//                                // Register observers to listen for when the download is done or if it fails
+//                                uploadTask.addOnFailureListener { error ->
+//                                    // Handle unsuccessful uploads
+//                                    Log.e(TAG, error.toString())
+//                                    image.close()
+//
+//                                }.addOnSuccessListener { taskSnapshot ->
+//                                    Log.e(TAG, taskSnapshot.toString())
+//                                    image.close()
+//                                    // taskSnapshot.metadata contains file metadata such as size, content-type, etc.
+//                                    // ...
+//                                }
+//
+//                            } else {
+//                                image.close()
+//                            }
+//
+//                        }
+//                    }
+            }
+        }, cameraHandler)
+    }
+
+
 
     /** Opens the camera and returns the opened device (as the result of the suspend coroutine) */
     @SuppressLint("MissingPermission")
@@ -547,193 +743,14 @@ class CameraFragment : Fragment() {
         }, handler)
     }
 
-    /**
-     * Helper function used to capture a still image using the [CameraDevice.TEMPLATE_STILL_CAPTURE]
-     * template. It performs synchronization between the [CaptureResult] and the [Image] resulting
-     * from the single capture, and outputs a [CombinedCaptureResult] object.
-     */
-    private suspend fun takePhoto(param: (Any)):
-            Int = suspendCoroutine { cont ->
-
-
-        // Start a new image queue
-        val imageQueue = ArrayBlockingQueue<Image>(IMAGE_BUFFER_SIZE)
-        imageReader.setOnImageAvailableListener({ reader ->
-            val image = reader.acquireNextImage()
-            Log.d(TAG, "Image available in queue: ${image.timestamp}")
-            imageQueue.add(image)
-        }, imageReaderHandler)
-
-        val sdf = SimpleDateFormat("dd:M:yyyy_hh:mm:ss")
-        val startDate = sdf.format(Date())
-
-        val captureRequest = session.device.createCaptureRequest(
-                CameraDevice.TEMPLATE_MANUAL).apply {
-                    addTarget(imageReader.surface);
-            set(CaptureRequest.JPEG_QUALITY, (90).toByte());
-//            set(CaptureRequest.CONTROL_AWB_MODE, CaptureRequest.CONTROL_AWB_MODE_AUTO);
-            set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_OFF);
-            set(CaptureRequest.SENSOR_EXPOSURE_TIME, 3000000000);
-            set(CaptureRequest.LENS_FOCUS_DISTANCE, 0.0f);
-            set(CaptureRequest.SENSOR_SENSITIVITY, 1600)
-                }
-        session.setRepeatingRequest(captureRequest.build(), object : CameraCaptureSession.CaptureCallback() {
-
-            override fun onCaptureStarted(
-                    session: CameraCaptureSession,
-                    request: CaptureRequest,
-                    timestamp: Long,
-                    frameNumber: Long) {
-                super.onCaptureStarted(session, request, timestamp, frameNumber)
-                fragmentCameraBinding.viewFinder.post(animationTask)
-            }
-
-            @RequiresApi(Build.VERSION_CODES.Q)
-            @SuppressLint("RequiresFeature")
-            override fun onCaptureCompleted(
-                    session: CameraCaptureSession,
-                    request: CaptureRequest,
-                    result: TotalCaptureResult) {
-                super.onCaptureCompleted(session, request, result)
-                val resultTimestamp = result.get(CaptureResult.SENSOR_TIMESTAMP)
-                Log.d(TAG, "Capture result received: $resultTimestamp")
-
-                val resString = result.get(CaptureResult.SENSOR_EXPOSURE_TIME)
-                Log.d(TAG, "Capture result exposure: $resString")
-
-                // Loop in the coroutine's context until an image with matching timestamp comes
-                // We need to launch the coroutine context again because the callback is done in
-                //  the handler provided to the `capture` method, not in our coroutine context
-                @Suppress("BlockingMethodInNonBlockingContext")
-                lifecycleScope.launch(cont.context) {
-                    while (true) {
-                        // Dequeue images while timestamps don't match
-                        val image = imageQueue.take()
-                        if (image != null) {
-                            if(isStopping) {
-                                session.stopRepeating()
-                                camera.close()
-
-                                Log.d(TAG, "Stop repeating")
-                                cont.resume(0)
-                            }
-                            Log.d(TAG, "Image dequeued: ${image.timestamp}")
-                            photosTaken++
-
-                            // TODO(owahltinez): b/142011420
-
-                            // Compute EXIF orientation metadata
-
-
-                            val buffer = image.planes[0].buffer.slice()
-                            val bytes = ByteArray(buffer.remaining()).apply { buffer.get(this) }
-                            val bmpImage: Bitmap =
-                                BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-                            Log.d(TAG, "${bmpImage.toString()}")
-                            val width = bmpImage.width
-                            val height = bmpImage.height
-                            val downWidth = width / 3
-                            val downHeight = height / 3
-                            val smallBmp: Bitmap =
-                                Bitmap.createScaledBitmap(bmpImage, downWidth, downHeight, false)
-                            Log.d(TAG, "small bitmap ${smallBmp.toString()}")
-
-                            var pixels = IntArray(downWidth * downHeight)
-                            smallBmp.getPixels(pixels, 0, downWidth, 0, 0, downWidth, downHeight)
-
-//                            var unpackedArray = IntArray(downWidth * downHeight * 4)
-//                            for ((index, value) in pixels.withIndex()) {
-//                                val k = index * 4
-//                                unpackedArray[k] = Color.red(value)
-//                                unpackedArray[k + 1] = Color.green(value)
-//                                unpackedArray[k + 2] = Color.blue(value)
-//                                unpackedArray[k + 3] = Color.alpha(value)
-//                            }
-
-                            var imgData = ImageData(pixels, downWidth, downHeight)
-
-                            val center = (imgData.width / 2) * (imgData.height / 2)
-                            fun brightness(pixel: Int) : Double {
-                                return (Color.red(pixel) +
-                                        Color.green(pixel) +
-                                        Color.blue(pixel)) / 3.0
-                            }
-                            val listBright = listOf(
-                                    brightness(pixels[center + 30]),
-                                    brightness(pixels[center - 30]),
-                                    brightness(pixels[center]),
-                                    80.0)
-                            val pixelScoreThreshold: Int = 5 + (listBright.minOrNull()?.toInt() ?: 10)
-                            val rotation = relativeOrientation.value ?: 0
-                            val mirrored = characteristics.get(CameraCharacteristics.LENS_FACING) ==
-                                    CameraCharacteristics.LENS_FACING_FRONT
-                            val exifOrientation = computeExifOrientation(rotation, mirrored)
-
-                            Log.d(TAG, "lineAlgorithm: $pixelScoreThreshold")
-
-
-                            val res = lineAlgorithm(imgData, pixelScoreThreshold)
-
-                            val resObject = "{istart: ${res.istart}, iend: ${res.iend}, jstart: ${res.jstart}, jend: ${res.jend}, size: ${res.size}}"
-
-
-                            val currentDate = sdf.format(Date())
-
-
-                            Log.d(TAG, "resObject: $resObject")
-
-//                            DEBUG
-//                            val highlightBitmap = createHighlightBitmap(smallBmp, pixelScoreThreshold)
-//                            writeBitmapToDisk(highlightBitmap, fileDir, "testPost.jpeg", exifOrientation, resObject)
-//                            writeBitmapToDisk(smallBmp, fileDir, "original.jpeg", exifOrientation, resObject)
-//                            val sq = drawSquareOnBitmap(smallBmp, res.jstart.toFloat(),
-//                               res.istart.toFloat(), res.jend.toFloat(), res.iend.toFloat())
-//                            writeBitmapToDisk(sq, fileDir, "selected.jpeg", exifOrientation, resObject)
-
-                            image.close()
-                            if (res.size >= 9) {
-                                photosCaptured++
-
-                                val fileDir = requireContext().filesDir
-
-                                val output = writeBitmapToDisk(bmpImage, fileDir, "$currentDate.jpeg", exifOrientation, resObject)
-
-                                val storageRef = Firebase.storage.reference;
-                                val firebasePath = "${startDate}/${currentDate}.jpeg"
-                                Log.e(TAG, firebasePath)
-
-                                val uploadTask = storageRef.child(
-                                        firebasePath
-                                    ).putFile(output.toUri(), storageMetadata {
-                                        contentType = "image/jpeg"
-                                    })
-                                    // Register observers to listen for when the download is done or if it fails
-                                    uploadTask.addOnFailureListener { error ->
-                                        // Handle unsuccessful uploads
-                                        Log.e(TAG, error.toString())
-                                        image.close()
-
-                                    }.addOnSuccessListener { taskSnapshot ->
-                                        Log.e(TAG, taskSnapshot.toString())
-                                        image.close()
-                                        // taskSnapshot.metadata contains file metadata such as size, content-type, etc.
-                                        // ...
-                                    }
-
-                            } else {
-                                image.close()
-                            }
-
-
-                            // Build the result and resume progress
-                            // There is no need to break out of the loop, this coroutine will suspend
-
-                        }
-                    }
-                }
-            }
-        }, cameraHandler)
-    }
+//    /**
+//     * Helper function used to capture a still image using the [CameraDevice.TEMPLATE_MANUAL]
+//     * template.
+//     */
+//    private suspend fun takePhotos() = coroutineScope {
+//
+//
+//    }
 
     override fun onStop() {
         super.onStop()
@@ -759,6 +776,11 @@ class CameraFragment : Fragment() {
         private val TAG = CameraFragment::class.java.simpleName
         private var isStopping = false
         private var isWebviewOpen = false
+        private var photosTaken = 0
+        private var photosCaptured = 0
+
+        private var photosText = "TEST"
+
 
         /** Maximum number of images that will be held in the reader's buffer */
         private const val IMAGE_BUFFER_SIZE: Int = 3
@@ -775,6 +797,12 @@ class CameraFragment : Fragment() {
             val format: Int
         ) : Closeable {
             override fun close() = image.close()
+        }
+
+        fun playSound (context: Context){
+            val mediaPlayer: MediaPlayer = MediaPlayer.create(context, R.raw.ding)
+            mediaPlayer.start()
+            mediaPlayer.release()
         }
 
         data class ImageData(
@@ -876,6 +904,37 @@ class CameraFragment : Fragment() {
             return file
       }
 
+        internal class SerialExecutor(executor: Executor) : Executor {
+            val tasks: Queue<Runnable> = ArrayDeque()
+            val executor: Executor
+            var active: Runnable? = null
+
+            init {
+                this.executor = executor
+            }
+
+            @Synchronized
+            override fun execute(r: Runnable) {
+                tasks.add {
+                    try {
+                        r.run()
+                    } finally {
+                        scheduleNext()
+                    }
+                }
+                if (active == null) {
+                    scheduleNext()
+                }
+            }
+
+            @Synchronized
+            protected fun scheduleNext() {
+                if (tasks.poll().also { active = it } != null) {
+                    executor.execute(active)
+                }
+            }
+        }
+
         data class BrightCluster(
             var istart: Int,
             var iend: Int,
@@ -911,7 +970,7 @@ class CameraFragment : Fragment() {
                 topLeftX = jsonObject.get("istart") as Int
                 topLeftY = jsonObject.get("jstart") as Int
             }
-            Log.d(TAG, "topLeft:  ${topLeftX.toString()} ${topLeftY.toString()}")
+            Log.d(TAG, "topLeft:  $topLeftX $topLeftY")
 
 
 
@@ -922,13 +981,19 @@ class CameraFragment : Fragment() {
 
             val bitmapTransformation = decodeExifOrientation(orientation)
 
-
             // Load bitmap from given buffer
             val bitmap = BitmapFactory.decodeByteArray(inputBuffer, 0, inputBuffer.size)
 
             // Transform bitmap orientation using provided metadata
-            return Bitmap.createBitmap(
-                bitmap, min(max(topLeftY * 3 - 100, 0), bitmap.height), min(max(topLeftX * 3 - 100,0), bitmap.width), 250, 250, bitmapTransformation, true)
+            return bitmap
+//            return Bitmap.createBitmap(
+//                bitmap,
+//                min(max(topLeftY * 3 - 100, 0), bitmap.height),
+//                min(max(topLeftX * 3 - 100,0), bitmap.width),
+//                250,
+//                250,
+//                bitmapTransformation,
+//                true)
         }
 
         private fun lineAlgorithm(imageData: ImageData, pixelScoreThreshold: Int): BrightCluster {
