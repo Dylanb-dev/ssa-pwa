@@ -17,7 +17,9 @@
 package com.example.android.camera2.basic.fragments
 
 import android.annotation.SuppressLint
+import android.app.Activity
 import android.content.Context
+import android.content.Intent
 import android.graphics.*
 import android.graphics.drawable.ColorDrawable
 import android.hardware.camera2.*
@@ -25,14 +27,18 @@ import android.media.ExifInterface
 import android.media.Image
 import android.media.ImageReader
 import android.media.MediaPlayer
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.HandlerThread
+import android.provider.MediaStore
 import android.util.Log
 import android.view.*
 import android.webkit.WebView
 import android.widget.*
+import androidx.activity.result.ActivityResultCallback
+import androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult
 import androidx.annotation.RequiresApi
 import androidx.core.graphics.drawable.toDrawable
 import androidx.core.net.toUri
@@ -72,7 +78,9 @@ import kotlin.coroutines.suspendCoroutine
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.sqrt
-
+import com.chaquo.python.PyException
+import com.chaquo.python.Python
+import com.chaquo.python.android.AndroidPlatform
 
 class CameraFragment : Fragment() {
     /** Android ViewBinding */
@@ -183,191 +191,201 @@ class CameraFragment : Fragment() {
     ): View {
         _fragmentCameraBinding = FragmentCameraBinding.inflate(inflater, container, false)
         _fragmentCameraBinding!!.textView3?.text = "Photos 0 / 0"
+
+        val photos =  _fragmentCameraBinding!!.savedPhotos
+        val photosPopupView: View = inflater.inflate(R.layout.gallery_window, null)
+
+        val photosPopupWindow = PopupWindow(
+            photosPopupView,
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        )
+
+        photos?.setOnClickListener {
+            if (!photosPopupWindow.isShowing) {
+                photosPopupWindow.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT));
+                photosPopupWindow.isOutsideTouchable = true
+                photosPopupWindow.isFocusable = true;
+                photosPopupWindow.showAtLocation(_fragmentCameraBinding!!.root, Gravity.CENTER, 0, 0);
+
+                Log.d(TAG, "popup created")
+                val recyclerView: RecyclerView = photosPopupView.findViewById(R.id.galleryRec)
+
+                val llm = LinearLayoutManager(requireContext())
+                llm.orientation = LinearLayoutManager.VERTICAL
+                recyclerView.layoutManager = llm
+
+                val bitmap = Bitmap.createBitmap(400, 400, Bitmap.Config.ARGB_8888)
+//                recyclerView.adapter = BitmapAdapter(listOf(bitmap))
+
+//                recyclerView.adapter = BitmapAdapter(emptyArray())
+
+                val directory = requireContext().filesDir
+                val files: Array<File> = directory.listFiles()
+                Log.d("Files", "Size: " + files.size)
+                val bitmapList: MutableList<Bitmap> = arrayListOf()
+                for (i in files.indices) {
+                    Log.d("Files", "FilePath:${directory.toPath()}/${files[i].name}")
+                    bitmapList.add(decodeBitmapPreview("${directory.toPath()}/${files[i].name}"))
+                }
+
+
+                val deleteImages: Button = photosPopupView.findViewById(R.id.deleteImages) as Button
+                deleteImages.setOnClickListener {
+                    val storageDir = requireContext().filesDir
+                    for (tempFile in storageDir.listFiles()) {
+                        tempFile.delete()
+                        recyclerView.adapter = BitmapAdapter(emptyList())
+                    }
+                }
+
+                if (bitmapList.isNotEmpty()) {
+                    recyclerView.adapter = BitmapAdapter(bitmapList)
+                }
+            }
+        }
+
+
         val settings =  _fragmentCameraBinding!!.settings
+
+        val settingsPopupView: View = inflater.inflate(R.layout.settings_window, null)
+
+        val settingsPopupWindow = PopupWindow(
+            settingsPopupView,
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        )
+
+
         settings?.setOnClickListener {
+            Log.d(TAG, "${settingsPopupWindow}")
+            if (!settingsPopupWindow.isShowing) {
 
-            val popupView: View = inflater.inflate(R.layout.settings_window, null)
-            val popupWindow = PopupWindow(
-                popupView,
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-            )
+                settingsPopupWindow.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT));
+                settingsPopupWindow.isOutsideTouchable = true
+                settingsPopupWindow.isFocusable = true;
+                settingsPopupWindow.update();
+                settingsPopupWindow.showAtLocation(_fragmentCameraBinding!!.root, Gravity.CENTER, 0, 0);
 
-            popupWindow.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT));
-            popupWindow.isOutsideTouchable = true
-            popupWindow.isFocusable = true;
-            popupWindow.update();
-            popupWindow.showAtLocation(_fragmentCameraBinding!!.root, Gravity.CENTER, 0, 0);
-
-
-            val closeButton: Button = popupView.findViewById(R.id.closeSettings) as Button
-            closeButton.setOnClickListener(
-                View.OnClickListener {
-                    popupWindow.dismiss()
-                }
-            )
-            val captureNumber = popupView.findViewById(R.id.editTextNumber) as EditText
-            fun modifyText(numberText: String) {
-                captureNumber.setText(numberText)
-                captureNumber.setSelection(numberText.length)
-            }
-
-            val captureMode: RadioGroup = popupView.findViewById(R.id.captureMode) as RadioGroup
-            captureMode.setOnCheckedChangeListener { group, checkedId ->
-                val radio: RadioButton = popupView.findViewById(checkedId)
-                val id = resources.getResourceEntryName(checkedId)
-                Log.d(TAG, radio.text as String)
-                when (id) {
-                    DURATION -> {
-                        Log.d(TAG,DURATION)
-                        selectedCapture = DURATION
-                        captureNumber.visibility = View.VISIBLE
-                        modifyText(durationTime.toString())
-
+                val closeButton: Button = settingsPopupView.findViewById(R.id.closeSettings) as Button
+                closeButton.setOnClickListener(
+                    View.OnClickListener {
+                        settingsPopupWindow.dismiss()
                     }
-                    NUMBER_OF_PHOTOS -> {
-                        Log.d(TAG,NUMBER_OF_PHOTOS)
-                        selectedCapture = NUMBER_OF_PHOTOS
-                        captureNumber.visibility = View.VISIBLE
-                        modifyText(numberOfPhotos.toString())
+                )
 
-                    }
-                    UNTIL_STOPPED -> {
-                        Log.d(TAG,UNTIL_STOPPED)
-                        selectedCapture = UNTIL_STOPPED
-                        captureNumber.visibility = View.GONE
+                val editDurationNumber = settingsPopupView.findViewById(R.id.editDurationNumber) as EditText
+                val editPhotoNumber = settingsPopupView.findViewById(R.id.editPhotoNumber) as EditText
 
+                val captureMode: RadioGroup = settingsPopupView.findViewById(R.id.captureMode) as RadioGroup
+                captureMode.setOnCheckedChangeListener { group, checkedId ->
+                    val radio: RadioButton = settingsPopupView.findViewById(checkedId)
+                    val id = resources.getResourceEntryName(checkedId)
+                    Log.d(TAG, radio.text as String)
+                    when (id) {
+                        DURATION -> {
+                            Log.d(TAG, DURATION)
+                            selectedCapture = DURATION
+                        }
+                        NUMBER_OF_PHOTOS -> {
+                            Log.d(TAG, NUMBER_OF_PHOTOS)
+                            selectedCapture = NUMBER_OF_PHOTOS
+                        }
+                        UNTIL_STOPPED -> {
+                            Log.d(TAG, UNTIL_STOPPED)
+                            selectedCapture = UNTIL_STOPPED
+                        }
                     }
                 }
-            }
 
-            captureNumber.doAfterTextChanged {
-                if (it.isNullOrBlank()) {
-                    modifyText("0")
-                    return@doAfterTextChanged
+                editDurationNumber.doAfterTextChanged() {
+                    if (it.isNullOrBlank()) {
+                        it?.append('0')
+                        return@doAfterTextChanged
+                    }
+                    val originalText = it.toString()
+                    durationTime = originalText.toInt()
+                    Log.d(TAG, "originalText $originalText")
                 }
-                val originalText = it.toString()
-                Log.d(TAG, "originalText $originalText")
+                editPhotoNumber.doAfterTextChanged {
+                    if (it.isNullOrBlank()) {
+                        it?.append('0')
+                        return@doAfterTextChanged
+                    }
+                    val originalText = it.toString()
+                    numberOfPhotos = originalText.toInt()
+                }
 
                 when (selectedCapture) {
                     DURATION -> {
-                        durationTime = originalText.toInt()
-                        Log.d(TAG, "durationTime $durationTime")
+                        // Set Radio
+                        val selectedRadio: RadioButton = settingsPopupView.findViewById(R.id.duration)
+                        selectedRadio.isChecked = true
 
                     }
                     NUMBER_OF_PHOTOS -> {
-                        numberOfPhotos = originalText.toInt()
-                        Log.d(TAG, "numberOfPhotos $numberOfPhotos")
+                        val selectedRadio: RadioButton =
+                            settingsPopupView.findViewById(R.id.number_of_photos)
+                        selectedRadio.isChecked = true
+
+                    }
+                    UNTIL_STOPPED -> {
+                        val selectedRadio: RadioButton = settingsPopupView.findViewById(R.id.until_stopped)
+                        selectedRadio.isChecked = true
                     }
                 }
-            }// With the function
 
-            when (selectedCapture) {
-                DURATION -> {
-                    // Set Radio
-                    val selectedRadio: RadioButton = popupView.findViewById(R.id.duration)
-                    selectedRadio.isChecked = true
-
-                }
-                NUMBER_OF_PHOTOS -> {
-                    val selectedRadio: RadioButton = popupView.findViewById(R.id.number_of_photos)
-                    selectedRadio.isChecked = true
-
-                }
-                UNTIL_STOPPED -> {
-                    val selectedRadio: RadioButton = popupView.findViewById(R.id.until_stopped)
-                    selectedRadio.isChecked = true
+                val countdownSwitch: Switch = settingsPopupView.findViewById(R.id.mySwitch) as Switch
+                countdownSwitch.isChecked = countDownTimer
+                countdownSwitch.setOnCheckedChangeListener { _, isChecked ->
+                    countDownTimer = isChecked
                 }
             }
-
-            val countdownSwitch: Switch = popupView.findViewById(R.id.mySwitch) as Switch
-            countdownSwitch.isChecked = countDownTimer
-            countdownSwitch.setOnCheckedChangeListener(CompoundButton.OnCheckedChangeListener {
-                    _, isChecked ->
-                countDownTimer = isChecked
-            })
         }
 
         val alarm =  _fragmentCameraBinding!!.alarm
+        val alarmPopupView: View = inflater.inflate(R.layout.alarm_window, null)
+
+        val alarmPopupWindow = PopupWindow(
+            alarmPopupView,
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        )
+
+
         alarm?.setOnClickListener {
+            Log.d(TAG, "$alarmPopupWindow")
+            if (!alarmPopupWindow.isShowing) {
+                alarmPopupWindow.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT));
+                alarmPopupWindow.isOutsideTouchable = true
+                alarmPopupWindow.update();
+                alarmPopupWindow.showAtLocation(
+                    _fragmentCameraBinding!!.root,
+                    Gravity.CENTER,
+                    0,
+                    0
+                );
 
-            val popupView: View = inflater.inflate(R.layout.alarm_window, null)
-
-            val popupWindow = PopupWindow(
-                popupView,
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-            )
-
-            Log.d(TAG, "${popupWindow!!.isShowing}")
-
-            popupWindow.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT));
-            popupWindow.isOutsideTouchable = true
-            popupWindow.showAtLocation(_fragmentCameraBinding!!.root, Gravity.CENTER, 0, 0);
-
-            val closeButton: Button = popupView.findViewById(R.id.closeSettings) as Button
-            closeButton.setOnClickListener {
-                popupWindow.dismiss()
-            }
-
-            val alarmSwitch: Switch = popupView.findViewById(R.id.alarmFinished) as Switch
-            alarmSwitch.isChecked = hasAlarm
-            alarmSwitch.setOnCheckedChangeListener { _, isChecked ->
-                hasAlarm = isChecked
-            }
-
-            val detectionSwitch: Switch = popupView.findViewById(R.id.alarmDetected) as Switch
-            detectionSwitch.isChecked = hasDetectionAlarm
-            detectionSwitch.setOnCheckedChangeListener { _, isChecked ->
-                hasDetectionAlarm = isChecked
-            }
-        }
-
-
-        val pictures =  _fragmentCameraBinding!!.savedPhotos
-        pictures?.setOnClickListener {
-
-            val popupView: View = inflater.inflate(R.layout.gallery_window, null)
-
-            val popupWindow = PopupWindow(
-                popupView,
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-            )
-
-            popupWindow.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT));
-            popupWindow.isOutsideTouchable = true
-            popupWindow.showAtLocation(_fragmentCameraBinding!!.root, Gravity.CENTER, 0, 0);
-            val recyclerView: RecyclerView = popupView.findViewById(R.id.galleryRec)
-            val llm = LinearLayoutManager(requireContext())
-            llm.orientation = LinearLayoutManager.VERTICAL
-            recyclerView.layoutManager = llm
-            recyclerView.adapter = CustomAdapter(emptyArray())
-
-            val directory = requireContext().filesDir
-            val files: Array<File> = directory.listFiles()
-            Log.d("Files", "Size: " + files.size)
-            val bitmapArray: Array<Bitmap> = emptyArray()
-            for (i in files.indices) {
-                Log.d("Files", "FilePath:${directory.toPath()}/${files[i].name}")
-                bitmapArray.plus(decodeBitmapPreview("${directory.toPath()}/${files[i].name}"))
-            }
-
-
-            val deleteImages: Button = popupView.findViewById(R.id.deleteImages) as Button
-            deleteImages.setOnClickListener {
-                val storageDir = requireContext().filesDir
-                for (tempFile in storageDir.listFiles()) {
-                    tempFile.delete()
+                val closeButton: Button = alarmPopupView.findViewById(R.id.closeSettings) as Button
+                closeButton.setOnClickListener {
+                    alarmPopupWindow.dismiss()
                 }
 
-            }
+                val alarmSwitch = alarmPopupView.findViewById(R.id.alarmFinished) as Switch
+                alarmSwitch.isChecked = hasAlarm
+                alarmSwitch.setOnCheckedChangeListener { _, isChecked ->
+                    hasAlarm = isChecked
+                }
 
-            if(files.isNotEmpty()) {
-                recyclerView.adapter = CustomAdapter(bitmapArray)
+                val detectionSwitch = alarmPopupView.findViewById(R.id.alarmDetected) as Switch
+                detectionSwitch.isChecked = hasDetectionAlarm
+                detectionSwitch.setOnCheckedChangeListener { _, isChecked ->
+                    hasDetectionAlarm = isChecked
+                }
             }
-
         }
+
+
 
         return fragmentCameraBinding.root
     }
@@ -516,17 +534,6 @@ class CameraFragment : Fragment() {
                     it.isSelected = false
                 }
             }
-
-
-//                // Perform I/O heavy operations in a different scope
-//                lifecycleScope.launch(Dispatchers.IO) {
-//
-//                    // Re-enable click listener after photo is taken
-//                    it.post { it.isSelected = false }
-//            }
-
-
-
         }
     }
 
@@ -599,6 +606,12 @@ class CameraFragment : Fragment() {
 
                             var imgData = ImageData(pixels, downWidth, downHeight)
 
+                            if (! Python.isStarted()) {
+                                Python.start(AndroidPlatform(requireContext()))
+                            }
+                            val py = Python.getInstance()
+//                            val module = py.getModule("scipy")
+
                             val center = (imgData.width / 2) * (imgData.height / 2)
                             fun brightness(pixel: Int): Double {
                                 return (Color.red(pixel) +
@@ -607,13 +620,14 @@ class CameraFragment : Fragment() {
                             }
 
                             val listBright = listOf(
-                                brightness(pixels[center + 30]),
-                                brightness(pixels[center - 30]),
+                                brightness(pixels[center + imgData.width]),
+                                brightness(pixels[center - imgData.height]),
                                 brightness(pixels[center]),
                                 80.0
                             )
-                            val pixelScoreThreshold: Int =
-                                5 + (listBright.minOrNull()?.toInt() ?: 10)
+                            val pixelScoreThreshold: Int = 50
+//                            val pixelScoreThreshold: Int =
+//                                5 + (listBright.minOrNull()?.toInt() ?: 10)
                             val rotation = relativeOrientation.value ?: 0
                             val mirrored = characteristics.get(CameraCharacteristics.LENS_FACING) ==
                                     CameraCharacteristics.LENS_FACING_FRONT
@@ -632,64 +646,64 @@ class CameraFragment : Fragment() {
 
 
                             Log.d(TAG, "resObject: $resObject")
-
-//                            DEBUG
+                            val fileDir = requireContext().filesDir
+//
+////                            DEBUG
 //                            val highlightBitmap = createHighlightBitmap(smallBmp, pixelScoreThreshold)
 //                            writeBitmapToDisk(highlightBitmap, fileDir, "testPost.jpeg", exifOrientation, resObject)
 //                            writeBitmapToDisk(smallBmp, fileDir, "original.jpeg", exifOrientation, resObject)
 //                            val sq = drawSquareOnBitmap(smallBmp, res.jstart.toFloat(),
 //                               res.istart.toFloat(), res.jend.toFloat(), res.iend.toFloat())
 //                            writeBitmapToDisk(sq, fileDir, "selected.jpeg", exifOrientation, resObject)
-                            if (res.size >= 9) {
-                                photosCaptured++
+//                            if (res.size >= 9) {
+//                                photosCaptured++
+//
+//                                if (hasDetectionAlarm) {
+//                                    playSound(requireContext())
+//                                }
+//
+//                                val output = writeBitmapToDisk(
+//                                    bmpImage,
+//                                    fileDir,
+//                                    "$currentDate.jpeg",
+//                                    exifOrientation,
+//                                    resObject
+//                                )
+//
+//                                val storageRef = Firebase.storage.reference;
+//                                val firebasePath = "${startDate}/${currentDate}.jpeg"
+//                                Log.e(TAG, firebasePath)
 
-                                if (hasDetectionAlarm) {
-                                    playSound(requireContext())
-                                }
-                                val fileDir = requireContext().filesDir
-
-                                val output = writeBitmapToDisk(
-                                    bmpImage,
-                                    fileDir,
-                                    "$currentDate.jpeg",
-                                    exifOrientation,
-                                    resObject
-                                )
-
-                                val storageRef = Firebase.storage.reference;
-                                val firebasePath = "${startDate}/${currentDate}.jpeg"
-                                Log.e(TAG, firebasePath)
-
-                                val uploadTask = storageRef.child(
-                                    firebasePath
-                                ).putFile(output.toUri(), storageMetadata {
-                                    contentType = "image/jpeg"
-                                })
-                                // Register observers to listen for when the download is done or if it fails
-                                uploadTask.addOnFailureListener { error ->
-                                    // Handle unsuccessful uploads
-                                    Log.e(TAG, error.toString())
-                                    image.close()
-
-                                }.addOnSuccessListener { taskSnapshot ->
-                                    Log.e(TAG, taskSnapshot.toString())
-                                    fragmentCameraBinding!!.textView3?.text = "Photos saved ${photosCaptured} / ${photosTaken}"
-//                                    Thread.sleep(2000)
-                                    image.close()
-                                    bmpImage.recycle()
-                                    takePhoto(captureRequest, startTime, imageQueue, onComplete)
-
-                                }
-                            } else {
-                                fragmentCameraBinding!!.textView3?.text = "Photos saved ${photosCaptured} / ${photosTaken}"
-//                                Thread.sleep(2000)
-                                image.close()
-                                bmpImage.recycle()
-                                return takePhoto(captureRequest, startTime, imageQueue, onComplete)
-                            }
+//                                val uploadTask = storageRef.child(
+//                                    firebasePath
+//                                ).putFile(output.toUri(), storageMetadata {
+//                                    contentType = "image/jpeg"
+//                                })
+//                                // Register observers to listen for when the download is done or if it fails
+//                                uploadTask.addOnFailureListener { error ->
+//                                    // Handle unsuccessful uploads
+//                                    Log.e(TAG, error.toString())
+//                                    image.close()
+//
+//                                }.addOnSuccessListener { taskSnapshot ->
+//                                    Log.e(TAG, taskSnapshot.toString())
+//                                    fragmentCameraBinding!!.textView3?.text = "Photos saved ${photosCaptured} / ${photosTaken}"
+////                                    Thread.sleep(2000)
+//                                    image.close()
+//                                    bmpImage.recycle()
+//                                    takePhoto(captureRequest, startTime, imageQueue, onComplete)
+//
+//                                }
+//                            } else {
+//                                fragmentCameraBinding!!.textView3?.text = "Photos saved ${photosCaptured} / ${photosTaken}"
+////                                Thread.sleep(2000)
+//                                image.close()
+//                                bmpImage.recycle()
+//                                return takePhoto(captureRequest, startTime, imageQueue, onComplete)
+//                            }
                         }
                     }
-            }
+                }
             }
         }, cameraHandler)
     }
@@ -790,7 +804,6 @@ class CameraFragment : Fragment() {
         private var photosCaptured = 0
 
         private var photosText = "TEST"
-
 
         /** Maximum number of images that will be held in the reader's buffer */
         private const val IMAGE_BUFFER_SIZE: Int = 3
@@ -995,15 +1008,14 @@ class CameraFragment : Fragment() {
             val bitmap = BitmapFactory.decodeByteArray(inputBuffer, 0, inputBuffer.size)
 
             // Transform bitmap orientation using provided metadata
-            return bitmap
-//            return Bitmap.createBitmap(
-//                bitmap,
-//                min(max(topLeftY * 3 - 100, 0), bitmap.height),
-//                min(max(topLeftX * 3 - 100,0), bitmap.width),
-//                250,
-//                250,
-//                bitmapTransformation,
-//                true)
+            return Bitmap.createBitmap(
+                bitmap,
+                min(max(topLeftY * 3 - 100, 0), bitmap.height),
+                min(max(topLeftX * 3 - 100,0), bitmap.width),
+                250,
+                250,
+                bitmapTransformation,
+                true)
         }
 
         private fun lineAlgorithm(imageData: ImageData, pixelScoreThreshold: Int): BrightCluster {
@@ -1143,42 +1155,63 @@ class CameraFragment : Fragment() {
         }
     }
 
-    class CustomAdapter(private val dataSet: Array<Bitmap>) :
-        RecyclerView.Adapter<CustomAdapter.ViewHolder>() {
+    class BitmapAdapter(private val bitmaps: List<Bitmap>) : RecyclerView.Adapter<BitmapAdapter.ViewHolder>() {
 
-        /**
-         * Provide a reference to the type of views that you are using
-         * (custom ViewHolder)
-         */
-        class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
-            val imageView: ImageView
-
-            init {
-                // Define click listener for the ViewHolder's View
-                imageView = view.findViewById(R.id.galleryImageView)
-            }
+        class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+            val imageView: ImageView = itemView.findViewById(R.id.imageView)
         }
 
-        // Create new views (invoked by the layout manager)
-        override fun onCreateViewHolder(viewGroup: ViewGroup, viewType: Int): ViewHolder {
-            // Create a new view, which defines the UI of the list item
-            val view = LayoutInflater.from(viewGroup.context)
-                .inflate(R.layout.gallery_image, viewGroup, false)
-
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
+            val view = LayoutInflater.from(parent.context).inflate(R.layout.gallery_image, parent, false)
             return ViewHolder(view)
         }
 
-        // Replace the contents of a view (invoked by the layout manager)
-        override fun onBindViewHolder(viewHolder: ViewHolder, position: Int) {
-
-            // Get element from your dataset at this position and replace the
-            // contents of the view with that element
-            viewHolder.imageView.setImageBitmap(dataSet[position])
+        override fun onBindViewHolder(holder: ViewHolder, position: Int) {
+            val bitmap = bitmaps[position]
+            holder.imageView.setImageBitmap(bitmap)
         }
 
-        // Return the size of your dataset (invoked by the layout manager)
-        override fun getItemCount() = dataSet.size
-
+        override fun getItemCount(): Int {
+            return bitmaps.size
+        }
     }
+//
+//    class CustomAdapter(private val dataSet: Array<Bitmap>) :
+//        RecyclerView.Adapter<CustomAdapter.ViewHolder>() {
+//
+//        /**
+//         * Provide a reference to the type of views that you are using
+//         * (custom ViewHolder)
+//         */
+//        class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
+//            val imageView: ImageView
+//
+//            init {
+//                // Define click listener for the ViewHolder's View
+//                imageView = view.findViewById(R.id.galleryImageView)
+//            }
+//        }
+//
+//        // Create new views (invoked by the layout manager)
+//        override fun onCreateViewHolder(viewGroup: ViewGroup, viewType: Int): ViewHolder {
+//            // Create a new view, which defines the UI of the list item
+//            val view = LayoutInflater.from(viewGroup.context)
+//                .inflate(R.layout.gallery_image, viewGroup, false)
+//
+//            return ViewHolder(view)
+//        }
+//
+//        // Replace the contents of a view (invoked by the layout manager)
+//        override fun onBindViewHolder(viewHolder: ViewHolder, position: Int) {
+//
+//            // Get element from your dataset at this position and replace the
+//            // contents of the view with that element
+//            viewHolder.imageView.setImageBitmap(dataSet[position])
+//        }
+//
+//        // Return the size of your dataset (invoked by the layout manager)
+//        override fun getItemCount() = dataSet.size
+//
+//    }
 
 }

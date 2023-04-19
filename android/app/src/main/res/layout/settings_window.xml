@@ -21,49 +21,75 @@
             android:textAppearance="?android:attr/textAppearanceMedium"
             android:textColor="#000000" />
 
-        <RadioGroup
-            android:id="@+id/captureMode"
+        <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="match_parent">
+            android:layout_height="match_parent"
+            android:orientation="horizontal">
 
-            <TextView
-                android:id="@+id/textView"
+            <RadioGroup
+                android:id="@+id/captureMode"
+                android:layout_width="199dp"
+                android:layout_height="match_parent">
+
+                <TextView
+                    android:id="@+id/textView"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginVertical="8dp"
+                    android:text="Set capture limit"
+                    android:textColor="#000000" />
+
+                <RadioButton
+                    android:id="@+id/duration"
+                    android:layout_width="200dp"
+                    android:layout_height="48dp"
+                    android:layout_marginBottom="8dp"
+                    android:text="Duration (seconds)" />
+
+                <RadioButton
+                    android:id="@+id/number_of_photos"
+                    android:layout_width="200dp"
+                    android:layout_height="48dp"
+                    android:layout_marginBottom="8dp"
+                    android:text="Number of photos" />
+
+                <RadioButton
+                    android:id="@+id/until_stopped"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:text="Until stopped" />
+            </RadioGroup>
+
+            <LinearLayout
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginVertical="8dp"
-                android:text="Set capture limit"
-                android:textColor="#000000" />
+                android:layout_height="match_parent"
+                android:layout_marginTop="36dp"
+                android:orientation="vertical">
 
-            <RadioButton
-                android:id="@+id/duration"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="8dp"
-                android:text="Duration (seconds)" />
+                <EditText
+                    android:id="@+id/editDurationNumber"
+                    android:layout_width="100dp"
+                    android:layout_height="48dp"
+                    android:contentDescription="seconds of recording"
+                    android:ems="5"
+                    android:focusable="true"
+                    android:focusableInTouchMode="true"
+                    android:inputType="number"
+                    android:text="30" />
 
-            <RadioButton
-                android:id="@+id/number_of_photos"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="8dp"
-                android:text="Number of photos" />
-
-            <RadioButton
-                android:id="@+id/until_stopped"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Until stopped" />
-        </RadioGroup>
-
-        <EditText
-            android:id="@+id/editTextNumber"
-            android:layout_width="136dp"
-            android:layout_height="wrap_content"
-            android:ems="5"
-            android:inputType="number"
-            android:focusable="true"
-            android:focusableInTouchMode="true"
-            android:text="0" />
+                <EditText
+                    android:id="@+id/editPhotoNumber"
+                    android:layout_width="100dp"
+                    android:layout_height="48dp"
+                    android:layout_weight="0"
+                    android:contentDescription="number of photos to take "
+                    android:ems="5"
+                    android:focusable="true"
+                    android:focusableInTouchMode="true"
+                    android:inputType="number"
+                    android:text="5" />
+            </LinearLayout>
+        </LinearLayout>
 
         <Switch
             android:id="@+id/mySwitch"

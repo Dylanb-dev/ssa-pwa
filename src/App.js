@@ -745,7 +745,7 @@ function App() {
 						const { longestObject } = lineAlgorithm(imageData)
 						console.log({ longestObject })
 						// Streak found, create final image
-						if (true) {
+						if (longestObject.size > 5 && longestObject.size < 500) {
 							// if (longestObject.size > 5 && longestObject.size < 500) {
 							setPhotosSaved(imageJpeg.current.length)
 
@@ -1388,7 +1388,7 @@ function App() {
 						<img src={logo} className="App-logo" alt="logo" />
 						<Flex direction="column">
 							<Heading fontSize="2xl">SatTrack</Heading>
-							<Text fontSize="10px">v405.1</Text>
+							<Text fontSize="10px">v418.1</Text>
 						</Flex>
 						<Text maxWidth="320px" color="InfoText" fontSize="sm">
 							{debugMessage}
