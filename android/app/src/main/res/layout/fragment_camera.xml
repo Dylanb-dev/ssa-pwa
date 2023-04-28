@@ -22,7 +22,11 @@
     android:layout_gravity="bottom"
     android:background="#000000"
     android:paddingBottom="48dp">
-
+    <com.github.chrisbanes.photoview.PhotoView
+        android:id="@+id/photo_view"
+        android:layout_width="349dp"
+        android:layout_height="580dp"
+        tools:ignore="MissingConstraints" />
     <WebView
         android:id="@+id/webview1"
         android:layout_width="match_parent"

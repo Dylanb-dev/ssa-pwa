@@ -17,9 +17,7 @@
 package com.example.android.camera2.basic.fragments
 
 import android.annotation.SuppressLint
-import android.app.Activity
 import android.content.Context
-import android.content.Intent
 import android.graphics.*
 import android.graphics.drawable.ColorDrawable
 import android.hardware.camera2.*
@@ -27,19 +25,16 @@ import android.media.ExifInterface
 import android.media.Image
 import android.media.ImageReader
 import android.media.MediaPlayer
-import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.HandlerThread
-import android.provider.MediaStore
 import android.util.Log
 import android.view.*
 import android.webkit.WebView
 import android.widget.*
-import androidx.activity.result.ActivityResultCallback
-import androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult
 import androidx.annotation.RequiresApi
+import androidx.core.content.ContextCompat
 import androidx.core.graphics.drawable.toDrawable
 import androidx.core.net.toUri
 import androidx.core.widget.doAfterTextChanged
@@ -58,6 +53,7 @@ import com.example.android.camera.utils.getPreviewOutputSize
 import com.example.android.camera2.basic.CameraActivity
 import com.example.android.camera2.basic.R
 import com.example.android.camera2.basic.databinding.FragmentCameraBinding
+import com.github.chrisbanes.photoview.PhotoView
 import com.google.firebase.ktx.Firebase
 import com.google.firebase.storage.ktx.storage
 import com.google.firebase.storage.ktx.storageMetadata
@@ -78,9 +74,7 @@ import kotlin.coroutines.suspendCoroutine
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.sqrt
-import com.chaquo.python.PyException
-import com.chaquo.python.Python
-import com.chaquo.python.android.AndroidPlatform
+
 
 class CameraFragment : Fragment() {
     /** Android ViewBinding */
@@ -202,6 +196,7 @@ class CameraFragment : Fragment() {
         )
 
         photos?.setOnClickListener {
+
             if (!photosPopupWindow.isShowing) {
                 photosPopupWindow.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT));
                 photosPopupWindow.isOutsideTouchable = true
@@ -220,16 +215,15 @@ class CameraFragment : Fragment() {
 
 //                recyclerView.adapter = BitmapAdapter(emptyArray())
 
-                val directory = requireContext().filesDir
+                val directory = File(requireContext().filesDir, "photos")
                 val files: Array<File> = directory.listFiles()
+
                 Log.d("Files", "Size: " + files.size)
                 val bitmapList: MutableList<Bitmap> = arrayListOf()
                 for (i in files.indices) {
                     Log.d("Files", "FilePath:${directory.toPath()}/${files[i].name}")
                     bitmapList.add(decodeBitmapPreview("${directory.toPath()}/${files[i].name}"))
                 }
-
-
                 val deleteImages: Button = photosPopupView.findViewById(R.id.deleteImages) as Button
                 deleteImages.setOnClickListener {
                     val storageDir = requireContext().filesDir
@@ -238,6 +232,18 @@ class CameraFragment : Fragment() {
                         recyclerView.adapter = BitmapAdapter(emptyList())
                     }
                 }
+
+//                        RecyclerItemClickListener(context, recyclerView ,new RecyclerItemClickListener.OnItemClickListener() {
+//                            @Override public void onItemClick(View view, int position) {
+//                                // do whatever
+//                            }
+//
+//                            @Override public void onLongItemClick(View view, int position) {
+//                                // do whatever
+//                            }
+//                        })
+
+
 
                 if (bitmapList.isNotEmpty()) {
                     recyclerView.adapter = BitmapAdapter(bitmapList)
@@ -558,7 +564,7 @@ class CameraFragment : Fragment() {
                 super.onCaptureCompleted(session, request, result)
                 val resultTimestamp = result.get(CaptureResult.SENSOR_TIMESTAMP)
                 Log.d(TAG, "Capture result received: $resultTimestamp")
-
+                photosTaken++
                 val resString = result.get(CaptureResult.SENSOR_EXPOSURE_TIME)
                 Log.d(TAG, "Capture result exposure: $resString")
                 Log.d(TAG, "isStopping: $isStopping")
@@ -575,41 +581,41 @@ class CameraFragment : Fragment() {
                     Log.d(TAG, "Stop capture requests")
                     onComplete(Unit)
                 }
-                else {
-                    var loop = true
-                    while (loop) {
-                        // Dequeue images while timestamps don't match
-
+                return if (photosTaken > 0 && photosTaken.mod(4) == 0) {
+                    while (imageQueue.size > 0) {
+                        Log.d(TAG, "processing images")
                         val image = imageQueue.take()
-                        if (image != null) {
-                            loop = false
-//                            imageQueue.clear()
-
-                            Log.d(TAG, "Image dequeued: ${image.timestamp}")
-                            photosTaken++
-
-                            val buffer = image.planes[0].buffer.slice()
-                            val bytes = ByteArray(buffer.remaining()).apply { buffer.get(this) }
-                            val bmpImage: Bitmap =
-                                BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-                            Log.d(TAG, "${bmpImage.toString()}")
-                            val width = bmpImage.width
-                            val height = bmpImage.height
+                        val buffer = image.planes[0].buffer.slice()
+                        val bytes = ByteArray(buffer.remaining()).apply { buffer.get(this) }
+                        val bmpImage: Bitmap =
+                            BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                        if(photosTaken.mod(4) == 0) {
+                            if(photosTaken == 4) {
+                                compositeImage = bmpImage
+                            } else {
+                                compositeImage = compositeImage?.let { overlay(it, bmpImage) }
+                                if (compositeImage == null) {
+                                    compositeImage = bmpImage
+                                }
+                            }
+                            val width = compositeImage!!.width
+                            val height = compositeImage!!.height
                             val downWidth = width / 3
                             val downHeight = height / 3
                             val smallBmp: Bitmap =
                                 Bitmap.createScaledBitmap(bmpImage, downWidth, downHeight, false)
-                            Log.d(TAG, "small bitmap ${smallBmp.toString()}")
+                            Log.d(TAG, "small bitmap $smallBmp")
 
                             var pixels = IntArray(downWidth * downHeight)
                             smallBmp.getPixels(pixels, 0, downWidth, 0, 0, downWidth, downHeight)
 
                             var imgData = ImageData(pixels, downWidth, downHeight)
 
-                            if (! Python.isStarted()) {
-                                Python.start(AndroidPlatform(requireContext()))
-                            }
-                            val py = Python.getInstance()
+//                            TODO: process image using python
+//                            if (! Python.isStarted()) {
+//                                Python.start(AndroidPlatform(requireContext()))
+//                            }
+//                            val py = Python.getInstance()
 //                            val module = py.getModule("scipy")
 
                             val center = (imgData.width / 2) * (imgData.height / 2)
@@ -625,9 +631,9 @@ class CameraFragment : Fragment() {
                                 brightness(pixels[center]),
                                 80.0
                             )
-                            val pixelScoreThreshold: Int = 50
-//                            val pixelScoreThreshold: Int =
-//                                5 + (listBright.minOrNull()?.toInt() ?: 10)
+
+                            val pixelScoreThreshold: Int =
+                                5 + (listBright.minOrNull()?.toInt() ?: 10)
                             val rotation = relativeOrientation.value ?: 0
                             val mirrored = characteristics.get(CameraCharacteristics.LENS_FACING) ==
                                     CameraCharacteristics.LENS_FACING_FRONT
@@ -635,74 +641,75 @@ class CameraFragment : Fragment() {
 
                             Log.d(TAG, "lineAlgorithm: $pixelScoreThreshold")
 
-
                             val res = lineAlgorithm(imgData, pixelScoreThreshold)
 
                             val resObject =
                                 "{istart: ${res.istart}, iend: ${res.iend}, jstart: ${res.jstart}, jend: ${res.jend}, size: ${res.size}}"
 
-
                             val currentDate = sdf.format(Date())
 
-
                             Log.d(TAG, "resObject: $resObject")
-                            val fileDir = requireContext().filesDir
+                            val fileDir = File(requireContext().filesDir, "photos")
 //
 ////                            DEBUG
 //                            val highlightBitmap = createHighlightBitmap(smallBmp, pixelScoreThreshold)
 //                            writeBitmapToDisk(highlightBitmap, fileDir, "testPost.jpeg", exifOrientation, resObject)
 //                            writeBitmapToDisk(smallBmp, fileDir, "original.jpeg", exifOrientation, resObject)
 //                            val sq = drawSquareOnBitmap(smallBmp, res.jstart.toFloat(),
-//                               res.istart.toFloat(), res.jend.toFloat(), res.iend.toFloat())
+//                                res.istart.toFloat(), res.jend.toFloat(), res.iend.toFloat())
 //                            writeBitmapToDisk(sq, fileDir, "selected.jpeg", exifOrientation, resObject)
-//                            if (res.size >= 9) {
-//                                photosCaptured++
-//
-//                                if (hasDetectionAlarm) {
-//                                    playSound(requireContext())
-//                                }
-//
-//                                val output = writeBitmapToDisk(
-//                                    bmpImage,
-//                                    fileDir,
-//                                    "$currentDate.jpeg",
-//                                    exifOrientation,
-//                                    resObject
-//                                )
-//
-//                                val storageRef = Firebase.storage.reference;
-//                                val firebasePath = "${startDate}/${currentDate}.jpeg"
-//                                Log.e(TAG, firebasePath)
 
-//                                val uploadTask = storageRef.child(
-//                                    firebasePath
-//                                ).putFile(output.toUri(), storageMetadata {
-//                                    contentType = "image/jpeg"
-//                                })
-//                                // Register observers to listen for when the download is done or if it fails
-//                                uploadTask.addOnFailureListener { error ->
-//                                    // Handle unsuccessful uploads
-//                                    Log.e(TAG, error.toString())
-//                                    image.close()
-//
-//                                }.addOnSuccessListener { taskSnapshot ->
-//                                    Log.e(TAG, taskSnapshot.toString())
-//                                    fragmentCameraBinding!!.textView3?.text = "Photos saved ${photosCaptured} / ${photosTaken}"
-////                                    Thread.sleep(2000)
-//                                    image.close()
-//                                    bmpImage.recycle()
-//                                    takePhoto(captureRequest, startTime, imageQueue, onComplete)
-//
-//                                }
-//                            } else {
-//                                fragmentCameraBinding!!.textView3?.text = "Photos saved ${photosCaptured} / ${photosTaken}"
-////                                Thread.sleep(2000)
-//                                image.close()
-//                                bmpImage.recycle()
-//                                return takePhoto(captureRequest, startTime, imageQueue, onComplete)
-//                            }
+                            if (res.size >= 9) {
+                                photosCaptured++
+
+                                if (hasDetectionAlarm) {
+                                    playSound(requireContext())
+                                }
+
+                                val output = writeBitmapToDisk(
+                                    bmpImage,
+                                    fileDir,
+                                    "$currentDate.jpeg",
+                                    exifOrientation,
+                                    resObject
+                                )
+
+                                val storageRef = Firebase.storage.reference;
+                                val firebasePath = "${startDate}/${currentDate}.jpeg"
+                                Log.d(TAG, firebasePath)
+
+                                val uploadTask = storageRef.child(
+                                    firebasePath
+                                ).putFile(output.toUri(), storageMetadata {
+                                    contentType = "image/jpeg"
+                                })
+                                // Register observers to listen for when the download is done or if it fails
+                                uploadTask.addOnFailureListener { error ->
+                                    // Handle unsuccessful uploads
+                                    Log.e(TAG, error.toString())
+                                    image.close()
+                                }.addOnSuccessListener { taskSnapshot ->
+                                    Log.e(TAG, taskSnapshot.toString())
+                                    fragmentCameraBinding!!.textView3?.text = "Photos saved ${photosCaptured} / ${photosTaken}"
+//                                    Thread.sleep(2000)
+                                    image.close()
+                                    bmpImage.recycle()
+                                    takePhoto(captureRequest, startTime, imageQueue, onComplete)
+                                }
+                            } else {
+                                fragmentCameraBinding!!.textView3?.text = "Photos saved ${photosCaptured} / ${photosTaken}"
+//                                Thread.sleep(2000)
+                                image.close()
+                                bmpImage.recycle()
+                                return takePhoto(captureRequest, startTime, imageQueue, onComplete)
+                            }
                         }
+                        image.close()
                     }
+                    imageQueue.clear()
+                    takePhoto(captureRequest, startTime, imageQueue, onComplete)
+                } else {
+                    takePhoto(captureRequest, startTime, imageQueue, onComplete)
                 }
             }
         }, cameraHandler)
@@ -802,11 +809,12 @@ class CameraFragment : Fragment() {
         private var isWebviewOpen = false
         private var photosTaken = 0
         private var photosCaptured = 0
+        private var compositeImage: Bitmap? = null
 
         private var photosText = "TEST"
 
         /** Maximum number of images that will be held in the reader's buffer */
-        private const val IMAGE_BUFFER_SIZE: Int = 3
+        private const val IMAGE_BUFFER_SIZE: Int = 4
 
         /** Maximum time allowed to wait for the result of an image capture */
         private const val IMAGE_CAPTURE_TIMEOUT_MILLIS: Long = 5000
@@ -889,6 +897,27 @@ class CameraFragment : Fragment() {
             )
             return smallBmpPost
         }
+
+        fun overlay(bmp1: Bitmap, bmp2: Bitmap): Bitmap
+        {
+            return try {
+                val maxWidth = if (bmp1.width > bmp2.width) bmp1.width else  bmp2.width;
+                val maxHeight = if (bmp1.height > bmp2.height) bmp1.height else bmp2.height;
+                val bmOverlay: Bitmap = Bitmap.createBitmap(maxWidth, maxHeight,  bmp1.config);
+                val canvas = Canvas(bmOverlay);
+
+                val paint = Paint()
+                paint.xfermode = PorterDuffXfermode(PorterDuff.Mode.LIGHTEN)
+
+                canvas.drawBitmap(bmp1, 0.0f, 0.0f, paint);
+                canvas.drawBitmap(bmp2, 0.0f, 0.0f, paint);
+                bmOverlay;
+
+            } catch (exc: Throwable) {
+                Log.e(TAG, "Error closing camera", exc)
+                return bmp1
+            }
+        }
         fun drawSquareOnBitmap(bitmap: Bitmap, left: Float, top: Float, right: Float, bottom: Float): Bitmap {
             val newBitmap = Bitmap.createBitmap(bitmap.width, bitmap.height, bitmap.config)
             val canvas = Canvas(newBitmap)
@@ -927,7 +956,7 @@ class CameraFragment : Fragment() {
             return file
       }
 
-        internal class SerialExecutor(executor: Executor) : Executor {
+        internal open class SerialExecutor(executor: Executor) : Executor {
             val tasks: Queue<Runnable> = ArrayDeque()
             val executor: Executor
             var active: Runnable? = null
@@ -968,6 +997,7 @@ class CameraFragment : Fragment() {
 
         /** Utility function used to decode a [Bitmap] from a byte array */
         private fun decodeBitmapPreview(filepath: String): Bitmap {
+            Log.d(TAG, filepath)
             val inputFile = File(filepath)
             val inputBuffer = BufferedInputStream(inputFile.inputStream()).let { stream ->
                 ByteArray(stream.available()).also {
@@ -979,7 +1009,7 @@ class CameraFragment : Fragment() {
             val exif = ExifInterface(filepath)
 
             val tagOrientation = exif.getAttribute( ExifInterface.TAG_ORIENTATION)
-            val bright = exif.getAttribute( ExifInterface.TAG_USER_COMMENT)
+            val bright = exif.getAttribute(ExifInterface.TAG_USER_COMMENT)
 
 
             Log.d(TAG, "tagOrientation:  $tagOrientation")
@@ -995,8 +1025,6 @@ class CameraFragment : Fragment() {
             }
             Log.d(TAG, "topLeft:  $topLeftX $topLeftY")
 
-
-
             var orientation = 0
             if(tagOrientation !=null) {
                 orientation = parseInt(tagOrientation)
@@ -1007,15 +1035,26 @@ class CameraFragment : Fragment() {
             // Load bitmap from given buffer
             val bitmap = BitmapFactory.decodeByteArray(inputBuffer, 0, inputBuffer.size)
 
-            // Transform bitmap orientation using provided metadata
-            return Bitmap.createBitmap(
-                bitmap,
-                min(max(topLeftY * 3 - 100, 0), bitmap.height),
-                min(max(topLeftX * 3 - 100,0), bitmap.width),
+            val scaledBitmap = Bitmap.createBitmap(
+                Bitmap.createScaledBitmap(bitmap, 250,250, false),
+                0,
+                0,
+//                min(max(topLeftY * 3 - 250, 0), bitmap.height- 250),
+//                min(max(topLeftX * 3 - 250,0), bitmap.width- 250),
                 250,
                 250,
                 bitmapTransformation,
-                true)
+                false)
+            val canvas = Canvas(scaledBitmap)
+
+            val p = Paint()
+            p.style = Paint.Style.STROKE
+            p.color = Color.rgb(255, 0, 0);
+
+            canvas.drawRect(100F, 100F, 200F, 200F, p);
+            // Transform bitmap orientation using provided metadata
+//            return bitmap
+            return scaledBitmap
         }
 
         private fun lineAlgorithm(imageData: ImageData, pixelScoreThreshold: Int): BrightCluster {
@@ -1169,49 +1208,19 @@ class CameraFragment : Fragment() {
         override fun onBindViewHolder(holder: ViewHolder, position: Int) {
             val bitmap = bitmaps[position]
             holder.imageView.setImageBitmap(bitmap)
+            holder.imageView.setOnClickListener { v ->
+                val photoView = v.findViewById<PhotoView>(R.id.photo_view)
+                Log.d(TAG, "photoView: $photoView")
+                val bitmap = ContextCompat.getDrawable(this, android.R.drawable.wallpaper)
+                mPhotoView.setImageDrawable(bitmap)
+//                photoView.setImageBitmap(bitmap)
+
+                Log.d(TAG, "$position")
+            }
         }
 
         override fun getItemCount(): Int {
             return bitmaps.size
         }
     }
-//
-//    class CustomAdapter(private val dataSet: Array<Bitmap>) :
-//        RecyclerView.Adapter<CustomAdapter.ViewHolder>() {
-//
-//        /**
-//         * Provide a reference to the type of views that you are using
-//         * (custom ViewHolder)
-//         */
-//        class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
-//            val imageView: ImageView
-//
-//            init {
-//                // Define click listener for the ViewHolder's View
-//                imageView = view.findViewById(R.id.galleryImageView)
-//            }
-//        }
-//
-//        // Create new views (invoked by the layout manager)
-//        override fun onCreateViewHolder(viewGroup: ViewGroup, viewType: Int): ViewHolder {
-//            // Create a new view, which defines the UI of the list item
-//            val view = LayoutInflater.from(viewGroup.context)
-//                .inflate(R.layout.gallery_image, viewGroup, false)
-//
-//            return ViewHolder(view)
-//        }
-//
-//        // Replace the contents of a view (invoked by the layout manager)
-//        override fun onBindViewHolder(viewHolder: ViewHolder, position: Int) {
-//
-//            // Get element from your dataset at this position and replace the
-//            // contents of the view with that element
-//            viewHolder.imageView.setImageBitmap(dataSet[position])
-//        }
-//
-//        // Return the size of your dataset (invoked by the layout manager)
-//        override fun getItemCount() = dataSet.size
-//
-//    }
-
 }

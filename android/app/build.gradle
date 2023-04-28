@@ -44,9 +44,9 @@ android {
             pip {
                 install "-r", "requirements.txt"
             }
-//            pyc {
-//                src false
-//            }
+        //    pyc {
+        //        src false
+        //    }
         }
     }
 
@@ -61,7 +61,8 @@ android {
 
     buildTypes {
         release {
-            minifyEnabled false
+            minifyEnabled true
+            shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
@@ -90,6 +91,7 @@ dependencies {
     implementation "androidx.viewpager2:viewpager2:1.0.0"
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
     implementation 'com.google.firebase:firebase-storage-ktx:20.1.0'
+    implementation 'com.github.chrisbanes:PhotoView:2.3.0'
 
     // Navigation library
     def nav_version = '2.5.3'
