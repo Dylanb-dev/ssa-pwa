@@ -76,7 +76,6 @@ class PermissionsFragment : Fragment() {
             val cameraList = PermissionsFragment.enumerateCameras(cameraManager)
             Log.d("CameraList", cameraList.toString())
 
-
             // Select RAW if available, high exposure if available
             Navigation.findNavController(requireActivity(), R.id.fragment_container).navigate(
                     PermissionsFragmentDirections.actionPermissionsFragmentToCameraFragment(

@@ -16,25 +16,30 @@
 
 package com.example.android.camera2.basic.fragments
 
+import android.R
+import android.app.Activity
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Matrix
+import android.graphics.drawable.BitmapDrawable
+import android.graphics.drawable.Drawable
 import android.os.Bundle
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.util.Log
-import android.view.MenuInflater
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.widget.ImageView
-import android.widget.PopupMenu
+import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
+import androidx.navigation.Navigation
 import androidx.navigation.fragment.navArgs
 import androidx.viewpager2.widget.ViewPager2
 import com.bumptech.glide.Glide
 import com.example.android.camera.utils.GenericListAdapter
 import com.example.android.camera.utils.decodeExifOrientation
+import com.github.chrisbanes.photoview.PhotoView
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.io.BufferedInputStream
@@ -68,22 +73,42 @@ class ImageViewerFragment : Fragment() {
     /** Data backing our Bitmap viewpager */
     private val bitmapList: MutableList<Bitmap> = mutableListOf()
 
-    private fun imageViewFactory() = ImageView(requireContext()).apply {
+    private fun imageViewFactory() = PhotoView(requireContext()).apply {
         layoutParams = ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT)
     }
 
-    override fun onCreateView(
+//    override fun onCreate(savedInstanceState: Bundle?) {
+//        super.onCreate(savedInstanceState)
+//        val callback = requireActivity().onBackPressedDispatcher.addCallback(this) {
+//            Navigation.findNavController(
+//                this, com.example.android.camera2.basic.R.id.fragment_container
+//            ).navigate(
+//                ImageViewerFragment.ac
+//            )
+//        }
+//
+//    }
+
+override fun onCreateView(
             inflater: LayoutInflater,
             container: ViewGroup?,
             savedInstanceState: Bundle?
     ): View? = ViewPager2(requireContext()).apply {
-        // Populate the ViewPager and implement a cache of two media items
+
+
+//        photoView.setImageDrawable(bitmapList);
+
+
         offscreenPageLimit = 2
+
         adapter = GenericListAdapter(
                 bitmapList,
                 itemViewFactory = { imageViewFactory() }) { view, item, _ ->
-            view as ImageView
-            Glide.with(view).load(item).into(view)
+                    view as PhotoView
+                    val drawableBitmap: Drawable = BitmapDrawable(resources, item)
+                    view.setImageDrawable(drawableBitmap)
+//                    photo_viewer = inflater.inflate(com.example.android.camera2.basic.R.layout.photo_viewer, null)
+//                    Glide.with(view).load(item).into(view)
         }
     }
 
@@ -95,25 +120,20 @@ class ImageViewerFragment : Fragment() {
 
             // Load input image file
             val inputBuffer = loadInputBuffer()
-
-            // Load the main JPEG image
+            // Populate the ViewPager and implement a cache of two media items
             addItemToViewPager(view, decodeBitmap(inputBuffer, 0, inputBuffer.size))
+//            val photoView: ImageView? =
+//                photo_viewer?.findViewById(com.example.android.camera2.basic.R.id.photoView);
+//
+//            Log.d(TAG, "photoView: $photoView")
+//
+////            val drawableBitmap: Drawable = BitmapDrawable(resources, decodeBitmap(inputBuffer, 0, inputBuffer.size)) as Drawable
+////            Log.d(TAG, "drawableBitmap: $drawableBitmap")
+//            // Load the main JPEG image
+//            Log.d(TAG, "inputBuffer.size; ${inputBuffer.size}")
+//            photoView?.setImageBitmap(decodeBitmap(inputBuffer, 0, inputBuffer.size))
+//            Log.d(TAG, "photoView: $photoView")
 
-            // If we have depth data attached, attempt to load it
-            if (isDepth) {
-                try {
-                    val depthStart = findNextJpegEndMarker(inputBuffer, 2)
-                    addItemToViewPager(view, decodeBitmap(
-                            inputBuffer, depthStart, inputBuffer.size - depthStart))
-
-                    val confidenceStart = findNextJpegEndMarker(inputBuffer, depthStart)
-                    addItemToViewPager(view, decodeBitmap(
-                            inputBuffer, confidenceStart, inputBuffer.size - confidenceStart))
-
-                } catch (exc: RuntimeException) {
-                    Log.e(TAG, "Invalid start marker for depth or confidence data")
-                }
-            }
         }
     }
 
@@ -141,8 +161,7 @@ class ImageViewerFragment : Fragment() {
         val bitmap = BitmapFactory.decodeByteArray(buffer, start, length, bitmapOptions)
 
         // Transform bitmap orientation using provided metadata
-        return Bitmap.createBitmap(
-                bitmap, 0, 0, bitmap.width, bitmap.height, bitmapTransformation, true)
+        return bitmap
     }
 
     companion object {
@@ -153,7 +172,7 @@ class ImageViewerFragment : Fragment() {
 
         /** These are the magic numbers used to separate the different JPG data chunks */
         private val JPEG_DELIMITER_BYTES = arrayOf(-1, -39)
-
+        private var photo_viewer: View? = null
         /**
          * Utility function used to find the markers indicating separation between JPEG data chunks
          */

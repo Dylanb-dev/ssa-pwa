@@ -8,6 +8,7 @@
     android:background="#FFFFFF"
     android:gravity="bottom"
     android:padding="16dp">
+
     <Button
         android:id="@+id/deleteImages"
         android:layout_width="match_parent"
