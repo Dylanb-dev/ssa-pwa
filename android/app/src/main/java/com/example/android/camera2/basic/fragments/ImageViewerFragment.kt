@@ -20,6 +20,7 @@ import android.R
 import android.app.Activity
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Color
 import android.graphics.Matrix
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
@@ -30,6 +31,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.widget.ImageView
+import androidx.activity.OnBackPressedCallback
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
@@ -77,17 +79,25 @@ class ImageViewerFragment : Fragment() {
         layoutParams = ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT)
     }
 
-//    override fun onCreate(savedInstanceState: Bundle?) {
-//        super.onCreate(savedInstanceState)
-//        val callback = requireActivity().onBackPressedDispatcher.addCallback(this) {
-//            Navigation.findNavController(
-//                this, com.example.android.camera2.basic.R.id.fragment_container
-//            ).navigate(
-//                ImageViewerFragment.ac
-//            )
-//        }
-//
-//    }
+override fun onCreate(savedInstanceState: Bundle?) {
+    super.onCreate(savedInstanceState)
+
+    val callback = object : OnBackPressedCallback(
+        true // default to enabled
+    ) {
+        override fun handleOnBackPressed() {
+            Navigation.findNavController(
+                requireActivity() as Activity, com.example.android.camera2.basic.R.id.fragment_container
+            ).navigate(
+               ImageViewerFragmentDirections.actionImageViewerFragmentToPermissionsFragment()
+            )
+        }
+    }
+    requireActivity().onBackPressedDispatcher.addCallback(
+        this, // LifecycleOwner
+        callback
+    )
+}
 
 override fun onCreateView(
             inflater: LayoutInflater,
@@ -96,7 +106,6 @@ override fun onCreateView(
     ): View? = ViewPager2(requireContext()).apply {
 
 
-//        photoView.setImageDrawable(bitmapList);
 
 
         offscreenPageLimit = 2
@@ -107,6 +116,7 @@ override fun onCreateView(
                     view as PhotoView
                     val drawableBitmap: Drawable = BitmapDrawable(resources, item)
                     view.setImageDrawable(drawableBitmap)
+                    view.setBackgroundColor(Color.parseColor("#000000"))
 //                    photo_viewer = inflater.inflate(com.example.android.camera2.basic.R.layout.photo_viewer, null)
 //                    Glide.with(view).load(item).into(view)
         }

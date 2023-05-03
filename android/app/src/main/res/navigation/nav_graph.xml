@@ -76,6 +76,9 @@
             android:name="depth"
             app:argType="boolean"
             android:defaultValue="false" />
+        <action
+            android:id="@+id/action_image_viewer_fragment_to_permissions_fragment"
+            app:destination="@id/permissions_fragment" />
     </fragment>
 
 </navigation>

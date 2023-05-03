@@ -140,9 +140,6 @@ class CameraFragment : Fragment() {
     /** [Handler] corresponding to [imageReaderThread] */
     private val imageReaderHandler = Handler(imageReaderThread.looper)
 
-    /** The [CameraDevice] that will be opened in this fragment */
-    private lateinit var camera: CameraDevice
-
     /** Internal reference to the ongoing [CameraCaptureSession] configured with our parameters */
     private lateinit var session: CameraCaptureSession
 
@@ -379,7 +376,9 @@ class CameraFragment : Fragment() {
 
         alarm?.setOnClickListener {
             Log.d(TAG, "$alarmPopupWindow")
-            if (!alarmPopupWindow.isShowing) {
+            if (alarmPopupWindow.isShowing) {
+                alarmPopupWindow.dismiss()
+            } else {
                 alarmPopupWindow.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT));
                 alarmPopupWindow.isOutsideTouchable = true
                 alarmPopupWindow.update();
@@ -406,12 +405,8 @@ class CameraFragment : Fragment() {
                 detectionSwitch.setOnCheckedChangeListener { _, isChecked ->
                     hasDetectionAlarm = isChecked
                 }
-            } else {
-                alarmPopupWindow.dismiss()
             }
         }
-
-
 
         return fragmentCameraBinding.root
     }
@@ -571,7 +566,8 @@ class CameraFragment : Fragment() {
                 session: CameraCaptureSession,
                 request: CaptureRequest,
                 timestamp: Long,
-                frameNumber: Long) {
+                frameNumber: Long
+            ) {
                 super.onCaptureStarted(session, request, timestamp, frameNumber)
                 fragmentCameraBinding.viewFinder.post(animationTask)
             }
@@ -580,7 +576,8 @@ class CameraFragment : Fragment() {
             override fun onCaptureCompleted(
                 session: CameraCaptureSession,
                 request: CaptureRequest,
-                result: TotalCaptureResult) {
+                result: TotalCaptureResult
+            ) {
                 super.onCaptureCompleted(session, request, result)
                 val resultTimestamp = result.get(CaptureResult.SENSOR_TIMESTAMP)
                 Log.d(TAG, "Capture result received: $resultTimestamp")
@@ -593,52 +590,75 @@ class CameraFragment : Fragment() {
                 val diffInMs: Long = Date().time - startTime
 
                 val timeSinceStart: Long = TimeUnit.MILLISECONDS.toSeconds(diffInMs)
-                if (isStopping || (selectedCapture  == NUMBER_OF_PHOTOS && photosTaken >= numberOfPhotos)
-                    || (selectedCapture  == DURATION && timeSinceStart >= durationTime)) {
+                if (isStopping || (selectedCapture == NUMBER_OF_PHOTOS && photosTaken >= numberOfPhotos)
+                    || (selectedCapture == DURATION && timeSinceStart >= durationTime)
+                ) {
                     if (hasAlarm) {
                         playSound(requireContext())
                     }
                     Log.d(TAG, "Stop capture requests")
                     onComplete(Unit)
-                }
-                return if (photosTaken > 0 && photosTaken.mod(4) == 0) {
-                    while (imageQueue.size > 0) {
-                        Log.d(TAG, "processing images")
-                        val image = imageQueue.take()
-                        val buffer = image.planes[0].buffer.slice()
-                        val bytes = ByteArray(buffer.remaining()).apply { buffer.get(this) }
-                        val bmpImage: Bitmap =
-                            BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-                        if(photosTaken == 4) {
-                            compositeImage = bmpImage
-                        } else {
-                            compositeImage = compositeImage?.let { overlay(it, bmpImage) }
-                            if (compositeImage == null) {
+                    return
+                } else {
+                    lifecycleScope.launch(Dispatchers.IO) {
+                        takePhoto(captureRequest, startTime, imageQueue, onComplete)
+                    }
+                    fragmentCameraBinding!!.textView3?.text =
+                        "Photos saved ${photosCaptured} / ${photosTaken / 4}"
+
+                    if (photosTaken > 0 && photosTaken.mod(4) == 0) {
+                        var count = 0
+                        val currentDate = sdf.format(Date())
+                        while (imageQueue.size > 0) {
+                            Log.d(TAG, "processing images")
+                            val image = imageQueue.take()
+                            val buffer = image.planes[0].buffer.slice()
+                            val bytes = ByteArray(buffer.remaining()).apply { buffer.get(this) }
+                            val bmpImage: Bitmap =
+                                BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                            if (count == 0) {
                                 compositeImage = bmpImage
+                            } else {
+                                compositeImage = compositeImage?.let { overlay(it, bmpImage) }
+                                if (compositeImage == null) {
+                                    compositeImage = bmpImage
+                                }
                             }
-                        }
+                            count++
 
+                            val rotation = relativeOrientation.value ?: 0
+                            val mirrored = characteristics.get(CameraCharacteristics.LENS_FACING) ==
+                                    CameraCharacteristics.LENS_FACING_FRONT
+                            val exifOrientation = computeExifOrientation(rotation, mirrored)
+                            val bitmapTransformation = decodeExifOrientation(exifOrientation)
 
-                        val rotation = relativeOrientation.value ?: 0
-                        val mirrored = characteristics.get(CameraCharacteristics.LENS_FACING) ==
-                                CameraCharacteristics.LENS_FACING_FRONT
-                        val exifOrientation = computeExifOrientation(rotation, mirrored)
-                        val bitmapTransformation = decodeExifOrientation(exifOrientation)
+                            val rotatedBitmap: Bitmap = Bitmap.createBitmap(
+                                compositeImage!!,
+                                0,
+                                0,
+                                compositeImage!!.width,
+                                compositeImage!!.height,
+                                bitmapTransformation,
+                                false
+                            )
 
-                        val rotatedBitmap: Bitmap = Bitmap.createBitmap(compositeImage!!, 0,0, compositeImage!!.width, compositeImage!!.height, bitmapTransformation, false)
+                            val width = rotatedBitmap!!.width
+                            val height = rotatedBitmap!!.height
+                            val downWidth = width / 3
+                            val downHeight = height / 3
 
-                        val width = rotatedBitmap!!.width
-                        val height = rotatedBitmap!!.height
-                        val downWidth = width / 3
-                        val downHeight = height / 3
+                            val smallBmp: Bitmap =
+                                Bitmap.createScaledBitmap(
+                                    rotatedBitmap,
+                                    downWidth,
+                                    downHeight,
+                                    false
+                                )
 
-                        val smallBmp: Bitmap =
-                            Bitmap.createScaledBitmap(rotatedBitmap, downWidth, downHeight, false)
+                            var pixels = IntArray(downWidth * downHeight)
+                            smallBmp.getPixels(pixels, 0, downWidth, 0, 0, downWidth, downHeight)
 
-                        var pixels = IntArray(downWidth * downHeight)
-                        smallBmp.getPixels(pixels, 0, downWidth, 0, 0, downWidth, downHeight)
-
-                        var imgData = ImageData(pixels, downWidth, downHeight)
+                            var imgData = ImageData(pixels, downWidth, downHeight)
 
 //                            TODO: process image using python
 //                            if (! Python.isStarted()) {
@@ -647,116 +667,116 @@ class CameraFragment : Fragment() {
 //                            val py = Python.getInstance()
 //                            val module = py.getModule("scipy")
 
-                        val center = (imgData.width / 2) * (imgData.height / 2)
-                        fun brightness(pixel: Int): Double {
-                            return (Color.red(pixel) +
-                                    Color.green(pixel) +
-                                    Color.blue(pixel)) / 3.0
-                        }
-
-                        val listBright = listOf(
-                            brightness(pixels[center + imgData.width]),
-                            brightness(pixels[center - imgData.height]),
-                            brightness(pixels[center]),
-                            80.0
-                        )
-
-                        val pixelScoreThreshold: Int =
-                            5 + (listBright.minOrNull()?.toInt() ?: 10)
-
-                        Log.d(TAG, "lineAlgorithm: $pixelScoreThreshold")
-
-                        val res = lineAlgorithm(imgData, pixelScoreThreshold)
-
-                        val resObject =
-                            "{istart: ${res.istart}, iend: ${res.iend}, jstart: ${res.jstart}, jend: ${res.jend}, size: ${res.size}}"
-
-                        val currentDate = sdf.format(Date())
-
-                        Log.d(TAG, "resObject: $resObject")
-////                            DEBUG
-//                            val highlightBitmap = createHighlightBitmap(smallBmp, pixelScoreThreshold)
-//                            writeBitmapToDisk(highlightBitmap, fileDir, "testPost.jpeg", exifOrientation, resObject)
-//                            writeBitmapToDisk(smallBmp, fileDir, "original.jpeg", exifOrientation, resObject)
-//                            val sq = drawSquareOnBitmap(smallBmp, res.jstart.toFloat(),
-//                                res.istart.toFloat(), res.jend.toFloat(), res.iend.toFloat())
-//                            writeBitmapToDisk(sq, fileDir, "selected.jpeg", exifOrientation, resObject)
-
-                        if (res.size >= 9) {
-                            photosCaptured++
-
-                            if (hasDetectionAlarm) {
-                                playSound(requireContext())
+                            val center = (imgData.width / 2) * (imgData.height / 2)
+                            fun brightness(pixel: Int): Double {
+                                return (Color.red(pixel) +
+                                        Color.green(pixel) +
+                                        Color.blue(pixel)) / 3.0
                             }
 
-                            val rawFileDir = File(requireContext().filesDir, "photos")
-                            val output = writeBitmapToDisk(
-                                rotatedBitmap,
-                                rawFileDir,
-                                "$currentDate.jpeg",
-                                resObject
+                            val listBright = listOf(
+                                brightness(pixels[center + imgData.width]),
+                                brightness(pixels[center - imgData.height]),
+                                brightness(pixels[center]),
+                                80.0
                             )
 
-                            val bmpFilePath = output.absolutePath
+                            val pixelScoreThreshold: Int =
+                                5 + (listBright.minOrNull()?.toInt() ?: 10)
 
-                            Log.d(TAG, "bmpFilePath: $bmpFilePath")
+                            Log.d(TAG, "lineAlgorithm: $pixelScoreThreshold")
 
-                            val (annotatedBmp, annotatedSmallBmp) = decodeBitmapPreviews(bmpFilePath)
+                            val res = lineAlgorithm(imgData, pixelScoreThreshold)
 
-                            val fullAnnotatedFileDir = File(requireContext().filesDir, "photos_full_annotated")
-                            val output_full = writeBitmapToDisk(
-                                annotatedBmp,
-                                fullAnnotatedFileDir,
-                                "$currentDate.full.jpeg",
-                                resObject
-                            )
+                            val resObject =
+                                "{istart: ${res.istart}, iend: ${res.iend}, jstart: ${res.jstart}, jend: ${res.jend}, size: ${res.size}}"
 
-                            val previewFileDir = File(requireContext().filesDir, "photos_preview")
 
-                            val output_preview = writeBitmapToDisk(
-                                annotatedSmallBmp,
-                                previewFileDir,
-                                "$currentDate.preview.jpeg",
-                                resObject
-                            )
+                            Log.d(TAG, "resObject: $resObject")
+                            ////                            DEBUG
+                            //                            val highlightBitmap = createHighlightBitmap(smallBmp, pixelScoreThreshold)
+                            //                            writeBitmapToDisk(highlightBitmap, fileDir, "testPost.jpeg", exifOrientation, resObject)
+                            //                            writeBitmapToDisk(smallBmp, fileDir, "original.jpeg", exifOrientation, resObject)
+                            //                            val sq = drawSquareOnBitmap(smallBmp, res.jstart.toFloat(),
+                            //                                res.istart.toFloat(), res.jend.toFloat(), res.iend.toFloat())
+                            //                            writeBitmapToDisk(sq, fileDir, "selected.jpeg", exifOrientation, resObject)
 
-                            val storageRef = Firebase.storage.reference;
-                            val firebasePath = "${startDate}/${currentDate}.jpeg"
-                            Log.d(TAG, firebasePath)
+                            if (res.size >= 9) {
+                                photosCaptured++
 
-                            val uploadTask = storageRef.child(
-                                firebasePath
-                            ).putFile(output.toUri(), storageMetadata {
-                                contentType = "image/jpeg"
-                            })
-                            // Register observers to listen for when the download is done or if it fails
-                            uploadTask.addOnFailureListener { error ->
-                                // Handle unsuccessful uploads
-                                Log.e(TAG, error.toString())
-                                image.close()
-                            }.addOnSuccessListener { taskSnapshot ->
-                                Log.e(TAG, taskSnapshot.toString())
-                                fragmentCameraBinding!!.textView3?.text = "Photos saved ${photosCaptured} / ${photosTaken}"
-//                                    Thread.sleep(2000)
+                                if (hasDetectionAlarm) {
+                                    playSound(requireContext())
+                                }
+
+                                val rawFileDir = File(requireContext().filesDir, "photos")
+                                val output = writeBitmapToDisk(
+                                    rotatedBitmap,
+                                    rawFileDir,
+                                    "$currentDate.jpeg",
+                                    resObject
+                                )
+
+                                val bmpFilePath = output.absolutePath
+
+                                Log.d(TAG, "bmpFilePath: $bmpFilePath")
+
+                                val (annotatedBmp, annotatedSmallBmp) = decodeBitmapPreviews(
+                                    bmpFilePath
+                                )
+
+                                val fullAnnotatedFileDir =
+                                    File(requireContext().filesDir, "photos_full_annotated")
+                                val output_full = writeBitmapToDisk(
+                                    annotatedBmp,
+                                    fullAnnotatedFileDir,
+                                    "$currentDate.full.jpeg",
+                                    resObject
+                                )
+
+                                val previewFileDir =
+                                    File(requireContext().filesDir, "photos_preview")
+
+                                val output_preview = writeBitmapToDisk(
+                                    annotatedSmallBmp,
+                                    previewFileDir,
+                                    "$currentDate.preview.jpeg",
+                                    resObject
+                                )
+
+                                val storageRef = Firebase.storage.reference;
+                                val firebasePath = "${startDate}/${currentDate}.jpeg"
+                                Log.d(TAG, firebasePath)
+
+                                val uploadTask = storageRef.child(
+                                    firebasePath
+                                ).putFile(output.toUri(), storageMetadata {
+                                    contentType = "image/jpeg"
+                                })
+                                // Register observers to listen for when the download is done or if it fails
+                                uploadTask.addOnFailureListener { error ->
+                                    // Handle unsuccessful uploads
+                                    Log.e(TAG, error.toString())
+                                    image.close()
+                                }.addOnSuccessListener { taskSnapshot ->
+                                    Log.e(TAG, taskSnapshot.toString())
+                                    fragmentCameraBinding!!.textView3?.text =
+                                        "Photos saved ${photosCaptured} / ${photosTaken / 4}"
+                                    //                                    Thread.sleep(2000)
+                                    image.close()
+                                    bmpImage.recycle()
+                                }
+                            } else {
+                                fragmentCameraBinding!!.textView3?.text =
+                                    "Photos saved ${photosCaptured} / ${photosTaken / 4}"
+                                //                                Thread.sleep(2000)
                                 image.close()
                                 bmpImage.recycle()
-                                takePhoto(captureRequest, startTime, imageQueue, onComplete)
                             }
-                        } else {
-                            fragmentCameraBinding!!.textView3?.text =
-                                "Photos saved ${photosCaptured} / ${photosTaken}"
-//                                Thread.sleep(2000)
                             image.close()
-                            bmpImage.recycle()
-                            return takePhoto(captureRequest, startTime, imageQueue, onComplete)
                         }
-                    image.close()
+                        imageQueue.clear()
+                    }
                 }
-                imageQueue.clear()
-                takePhoto(captureRequest, startTime, imageQueue, onComplete)
-            } else {
-                takePhoto(captureRequest, startTime, imageQueue, onComplete)
-            }
             }
         }, cameraHandler)
     }
@@ -832,7 +852,7 @@ class CameraFragment : Fragment() {
     override fun onStop() {
         super.onStop()
         try {
-//            camera.close()
+            camera.close()
         } catch (exc: Throwable) {
             Log.e(TAG, "Error closing camera", exc)
         }
@@ -856,6 +876,10 @@ class CameraFragment : Fragment() {
         private var photosTaken = 0
         private var photosCaptured = 0
         private var compositeImage: Bitmap? = null
+        /** The [CameraDevice] that will be opened in this fragment */
+        private lateinit var camera: CameraDevice
+
+
         /** Popup menu for adjusting capture settings */
         private lateinit var settingsPopupWindow: PopupWindow
 
@@ -965,7 +989,7 @@ class CameraFragment : Fragment() {
                 bmOverlay;
 
             } catch (exc: Throwable) {
-                Log.e(TAG, "Error closing camera", exc)
+                Log.e(TAG, "Error with overlay", exc)
                 return bmp1
             }
         }
@@ -1247,6 +1271,7 @@ class CameraFragment : Fragment() {
 
                 val imagePath = files[position].absolutePath
                 photosPopupWindow.dismiss()
+                camera.close()
                 Navigation.findNavController(
                     holder.itemView.context as Activity, R.id.fragment_container
                 ).navigate(
